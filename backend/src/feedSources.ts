@@ -30,15 +30,17 @@ export const FEED_SOURCES: FeedSource[] = [
   { name: '9to5Google',           url: 'https://9to5google.com/feed/',                                          category: 'tech' },
 
   // ── STARTUPS ─────────────────────────────────────────────────────────────
-  // Global + India + Europe — funding rounds, new companies, ideas
-  { name: 'TechCrunch Startups',  url: 'https://techcrunch.com/category/startups/feed/',                        category: 'startups' },
-  { name: 'TechCrunch Venture',   url: 'https://techcrunch.com/category/venture/feed/',                         category: 'startups' },
-  { name: 'TechCrunch Fundings',  url: 'https://techcrunch.com/fundings-exits/feed/',                           category: 'startups' },
-  { name: 'YCombinator',          url: 'https://www.ycombinator.com/blog/rss.xml',                              category: 'startups' },
+  // What new companies are building, their ideas, products, and missions.
+  // NOT funding rounds — focus on company stories, innovations, founders.
+  { name: 'Fast Company',         url: 'https://www.fastcompany.com/latest/rss.xml',                            category: 'startups' },
+  { name: 'Inc Magazine',         url: 'https://www.inc.com/rss.xml',                                           category: 'startups' },
+  { name: 'First Round Review',   url: 'https://review.firstround.com/feed.xml',                                category: 'startups' },
+  { name: 'a16z',                 url: 'https://a16z.com/feed/',                                                category: 'startups' },
+  { name: 'YCombinator Blog',     url: 'https://www.ycombinator.com/blog/rss.xml',                              category: 'startups' },
   { name: 'EU-Startups',          url: 'https://www.eu-startups.com/feed/',                                     category: 'startups' },
-  // India
-  { name: 'Inc42',                url: 'https://inc42.com/feed/',                                               category: 'startups' },
+  // India startup ecosystem
   { name: 'YourStory',            url: 'https://yourstory.com/feed/',                                           category: 'startups' },
+  { name: 'Inc42',                url: 'https://inc42.com/feed/',                                               category: 'startups' },
 
   // ── PRODUCT ─────────────────────────────────────────────────────────────
   { name: '9to5Mac',              url: 'https://9to5mac.com/feed/',                                             category: 'product' },
@@ -48,21 +50,24 @@ export const FEED_SOURCES: FeedSource[] = [
   { name: 'The Verge',            url: 'https://www.theverge.com/rss/index.xml',                                category: 'product' },
 
   // ── COMPANIES ───────────────────────────────────────────────────────────
+  // Big company moves, earnings, strategy, leadership — Apple, Google, Meta etc.
   { name: 'CNBC Tech',            url: 'https://www.cnbc.com/id/15838652/device/rss/rss.html',                  category: 'companies' },
   { name: 'Fortune Tech',         url: 'https://fortune.com/section/tech/feed',                                  category: 'companies' },
-  { name: 'MarketWatch',          url: 'https://feeds.marketwatch.com/marketwatch/topstories/',                  category: 'companies' },
   { name: 'VentureBeat',          url: 'https://venturebeat.com/feed/',                                         category: 'companies' },
+  { name: 'Wired Business',       url: 'https://www.wired.com/feed/category/business/latest/rss',               category: 'companies' },
 
-  // ── WORLD — Geopolitics + Markets ───────────────────────────────────────
-  // Free sources only. Reuters RSS is dead. Foreign Policy is paywalled.
-  // Coverage: world events, conflicts, diplomacy, gold/macro, market moves.
+  // ── WORLD — Pure Geopolitics ────────────────────────────────────────────
+  // Conflicts, diplomacy, political movements, power shifts, global affairs.
+  // No markets, no finance — that's Companies. No paywall sources.
   { name: 'BBC World',            url: 'https://feeds.bbci.co.uk/news/world/rss.xml',                           category: 'geopolitical' },
   { name: 'Al Jazeera',           url: 'https://www.aljazeera.com/xml/rss/all.xml',                             category: 'geopolitical' },
+  { name: 'The Guardian World',   url: 'https://www.theguardian.com/world/rss',                                 category: 'geopolitical' },
+  { name: 'DW World',             url: 'https://rss.dw.com/rdf/rss-en-world',                                   category: 'geopolitical' },
+  { name: 'France 24',            url: 'https://www.france24.com/en/rss',                                       category: 'geopolitical' },
   { name: 'UN News',              url: 'https://news.un.org/feed/subscribe/en/news/all/rss.xml',                category: 'geopolitical' },
-  { name: 'Chatham House',        url: 'https://www.chathamhouse.org/rss/all',                                  category: 'geopolitical' },
   { name: 'Crisis Group',         url: 'https://www.crisisgroup.org/rss',                                       category: 'geopolitical' },
+  { name: 'Chatham House',        url: 'https://www.chathamhouse.org/rss/all',                                  category: 'geopolitical' },
   { name: 'ECFR',                 url: 'https://ecfr.eu/feed/',                                                  category: 'geopolitical' },
-  { name: 'MarketWatch',          url: 'https://feeds.marketwatch.com/marketwatch/topstories/',                  category: 'geopolitical' },
   { name: 'Global Voices',        url: 'https://globalvoices.org/feeds/',                                        category: 'geopolitical' },
 
   // ── LEARN ─────────────────────────────────────────────────────────────
