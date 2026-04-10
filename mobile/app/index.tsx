@@ -30,7 +30,7 @@ export default function FeedScreen() {
   const handleCardPress = useCallback((item: NewsItem) => {
     router.push({
       pathname: '/article',
-      params: { url: item.url, title: item.title },
+      params: { url: item.url, title: item.title, description: item.description ?? '' },
     });
   }, [router]);
 

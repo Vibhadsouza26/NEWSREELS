@@ -21,7 +21,7 @@ const parser = new Parser({
       ['enclosure', 'enclosure'],
     ],
   },
-  timeout: 4000,
+  timeout: 3000,
 });
 
 const MAX_AGE_DAYS = 14; // filter out articles older than 14 days

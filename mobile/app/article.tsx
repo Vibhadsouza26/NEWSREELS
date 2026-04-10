@@ -87,10 +87,11 @@ true;
 
 export default function ArticleScreen() {
   const router = useRouter();
-  const { url, title } = useLocalSearchParams<{ url: string; title: string }>();
+  const { url, title, description } = useLocalSearchParams<{ url: string; title: string; description: string }>();
 
   const [selectedText, setSelectedText] = useState('');
-  const [pageContent, setPageContent] = useState('');
+  // Pre-seed with the RSS description so AI works immediately before WebView JS fires
+  const [pageContent, setPageContent] = useState(description ?? '');
   const [showAi, setShowAi] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
 
@@ -98,7 +99,8 @@ export default function ArticleScreen() {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'PAGE_CONTENT') {
-        setPageContent(msg.text);
+        // Only upgrade if extracted content is richer than what we already have
+        if (msg.text.length > pageContent.length) setPageContent(msg.text);
       } else if (msg.type === 'TEXT_SELECTED') {
         setSelectedText(msg.text);
         setHasSelection(msg.text.length > 10);

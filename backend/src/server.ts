@@ -19,7 +19,7 @@ if (fs.existsSync(envPath)) {
 }
 
 const app = express();
-const cache = new NodeCache({ stdTTL: 300 }); // 5 min TTL
+const cache = new NodeCache({ stdTTL: 600 }); // 10 min TTL
 
 app.use(cors());
 app.use(express.json());
@@ -37,6 +37,7 @@ app.get('/api/news', async (req, res) => {
 
     const cached = cache.get<NewsItem[]>(cacheKey);
     if (cached) {
+      res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
       return res.json({ items: cached, cached: true, count: cached.length });
     }
 
@@ -61,6 +62,7 @@ app.get('/api/news', async (req, res) => {
     merged.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
     cache.set(cacheKey, merged);
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
     return res.json({ items: merged, cached: false, count: merged.length });
   } catch (err: any) {
     console.error('[/api/news]', err.message);
