@@ -6,6 +6,12 @@
     "orientation": "portrait",
     "scheme": "newsreels",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0f"
+    },
     "platforms": ["ios", "android"],
     "plugins": [
       "expo-router",
@@ -18,8 +24,10 @@
     ],
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#000000"
-      }
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0a0f"
+      },
+      "package": "com.vibha.newsreels"
     },
     "ios": {
       "supportsTablet": false
