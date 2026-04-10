@@ -30,17 +30,21 @@ export const FEED_SOURCES: FeedSource[] = [
   { name: '9to5Google',           url: 'https://9to5google.com/feed/',                                          category: 'tech' },
 
   // ── STARTUPS ─────────────────────────────────────────────────────────────
-  // What new companies are building, their ideas, products, and missions.
-  // NOT funding rounds — focus on company stories, innovations, founders.
-  { name: 'Fast Company',         url: 'https://www.fastcompany.com/latest/rss.xml',                            category: 'startups' },
-  { name: 'Inc Magazine',         url: 'https://www.inc.com/rss.xml',                                           category: 'startups' },
-  { name: 'First Round Review',   url: 'https://review.firstround.com/feed.xml',                                category: 'startups' },
-  { name: 'a16z',                 url: 'https://a16z.com/feed/',                                                category: 'startups' },
-  { name: 'YCombinator Blog',     url: 'https://www.ycombinator.com/blog/rss.xml',                              category: 'startups' },
-  { name: 'EU-Startups',          url: 'https://www.eu-startups.com/feed/',                                     category: 'startups' },
-  // India startup ecosystem
+  // What new companies are building — founder journeys, ideas, what made them
+  // different, marketing plays, product launches. NOT VC funding rounds.
+
+  // India ecosystem — new startups, founder stories, what they're doing
   { name: 'YourStory',            url: 'https://yourstory.com/feed/',                                           category: 'startups' },
-  { name: 'Inc42',                url: 'https://inc42.com/feed/',                                               category: 'startups' },
+  { name: 'Inc42',                url: 'https://inc42.com/features/feed/',                                      category: 'startups' },
+  { name: 'Entrackr',             url: 'https://entrackr.com/feed/',                                            category: 'startups' },
+
+  // Global — what startups are building and how they grew
+  { name: 'Product Hunt',         url: 'https://raw.githubusercontent.com/headllines/producthunt-daily-rss/master/rss.xml', category: 'startups' },
+  { name: 'Startup Grind',        url: 'https://medium.com/feed/startup-grind',                                 category: 'startups' },
+  { name: 'First Round Review',   url: 'https://review.firstround.com/feed.xml',                                category: 'startups' },
+  { name: 'YCombinator',          url: 'https://www.ycombinator.com/blog/rss.xml',                              category: 'startups' },
+  { name: 'Show HN',              url: 'https://hnrss.org/show?points=50',                                      category: 'startups' },
+  { name: 'EU-Startups',          url: 'https://www.eu-startups.com/feed/',                                     category: 'startups' },
 
   // ── PRODUCT ─────────────────────────────────────────────────────────────
   { name: '9to5Mac',              url: 'https://9to5mac.com/feed/',                                             category: 'product' },
