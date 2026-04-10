@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import NodeCache from 'node-cache';
 import { fetchAllFeeds, NewsItem } from './rssParser';
-import { fetchHNStories } from './hnApi';
 import { askAI, AiRequest } from './aiHandler';
 import { ALL_CATEGORIES, Category } from './feedSources';
 
@@ -42,16 +41,13 @@ app.get('/api/news', async (req, res) => {
     }
 
     // Fetch RSS feeds
-    const [rssItems, hnItems] = await Promise.all([
-      fetchAllFeeds(category),
-      !category || category === 'startups' ? fetchHNStories(20) : Promise.resolve([]),
-    ]);
+    const rssItems = await fetchAllFeeds(category);
 
-    // Merge + deduplicate by URL
+    // Deduplicate by URL
     const seen = new Set<string>();
     const merged: NewsItem[] = [];
 
-    for (const item of [...hnItems, ...rssItems]) {
+    for (const item of rssItems) {
       if (!seen.has(item.url)) {
         seen.add(item.url);
         merged.push(item);

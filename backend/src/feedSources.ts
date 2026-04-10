@@ -28,6 +28,11 @@ export const FEED_SOURCES: FeedSource[] = [
   { name: 'Ars Technica',         url: 'https://feeds.arstechnica.com/arstechnica/index',                       category: 'tech' },
   { name: 'Wired',                url: 'https://www.wired.com/feed/rss',                                        category: 'tech' },
   { name: '9to5Google',           url: 'https://9to5google.com/feed/',                                          category: 'tech' },
+  { name: 'Engadget',             url: 'https://www.engadget.com/rss.xml',                                      category: 'tech' },
+  { name: 'The Register',         url: 'https://www.theregister.com/headlines.atom',                            category: 'tech' },
+  { name: 'Hacker News',          url: 'https://hnrss.org/frontpage?points=100',                                category: 'tech' },
+  { name: 'MIT Tech Review',      url: 'https://www.technologyreview.com/feed/',                                category: 'tech' },
+  { name: 'CNET',                 url: 'https://www.cnet.com/rss/news/',                                        category: 'tech' },
 
   // ── STARTUPS ─────────────────────────────────────────────────────────────
   // What new companies are building — founder journeys, ideas, what made them
