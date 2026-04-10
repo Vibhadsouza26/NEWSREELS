@@ -93,7 +93,7 @@ export default function AiBottomSheet({
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', text: 'Something went wrong. Please try again.' },
+        { role: 'assistant', text: 'AI is busy right now. Wait a moment and try again.' },
       ]);
     } finally {
       setLoading(false);
