@@ -19,28 +19,62 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 // 2. Detect text selection and post it back
 const INJECTED_JS = `
 (function() {
-  // Send page content once DOM is ready
-  function sendPageContent() {
+  // Extract the best possible article text from the page
+  function extractArticleText() {
     try {
-      const bodyText = document.body ? document.body.innerText.substring(0, 5000) : '';
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'PAGE_CONTENT',
-        text: bodyText
-      }));
-    } catch(e) {}
+      // Try semantic article containers first (most news sites use these)
+      const selectors = [
+        'article',
+        '[role="main"]',
+        '.article-body',
+        '.article-content',
+        '.post-content',
+        '.entry-content',
+        '.story-body',
+        '.content-body',
+        'main',
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var el = document.querySelector(selectors[i]);
+        if (el && el.innerText && el.innerText.trim().length > 300) {
+          return el.innerText.trim().substring(0, 6000);
+        }
+      }
+      // Fallback: full body text
+      return document.body ? document.body.innerText.trim().substring(0, 6000) : '';
+    } catch(e) {
+      return '';
+    }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', sendPageContent);
+  function sendPageContent() {
+    var text = extractArticleText();
+    if (text.length > 100) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'PAGE_CONTENT',
+        text: text
+      }));
+    }
+  }
+
+  // Wait for full page load for best extraction
+  if (document.readyState === 'complete') {
+    setTimeout(sendPageContent, 1000);
   } else {
-    setTimeout(sendPageContent, 800);
+    window.addEventListener('load', function() {
+      setTimeout(sendPageContent, 1000);
+    });
+    // Also try after DOMContentLoaded as fallback
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(sendPageContent, 2000);
+    });
   }
 
   // Listen for text selection
   document.addEventListener('selectionchange', function() {
     try {
-      const sel = window.getSelection();
-      const text = sel ? sel.toString().trim() : '';
+      var sel = window.getSelection();
+      var text = sel ? sel.toString().trim() : '';
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'TEXT_SELECTED',
         text: text

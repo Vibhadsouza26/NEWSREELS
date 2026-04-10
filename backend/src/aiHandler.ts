@@ -16,20 +16,31 @@ export async function askGemini(req: AiRequest): Promise<string> {
   const hasPageContent = req.pageContent && req.pageContent.trim().length > 100;
   const hasSelection = req.selectedText && req.selectedText.trim().length > 5;
 
-  const prompt = `You are an expert AI assistant helping someone understand news, research, and technology topics. You have deep knowledge of AI models, ML techniques, LLMs, startups, geopolitics, and tech industry developments up to your knowledge cutoff.
+  const prompt = hasPageContent
+    ? `You are a helpful assistant. Answer questions strictly based on the article content below. Do not use outside knowledge except to briefly explain technical terms that appear in the article.
 
 Article title: "${req.articleTitle}"
-${hasPageContent ? `\nArticle content (excerpt):\n${req.pageContent!.substring(0, 4000)}` : '\n(Full article text not available — answer from your knowledge based on the title and topic.)'}
-${hasSelection ? `\nUser highlighted this specific text:\n"${req.selectedText}"` : ''}
+
+Article content:
+${req.pageContent!.substring(0, 4000)}
+${hasSelection ? `\nUser highlighted this specific passage:\n"${req.selectedText}"` : ''}
 
 User question: ${req.question}
 
 Instructions:
-- Answer thoroughly and helpfully. If the article content is available, use it. If not, draw on your own knowledge about the topic.
-- For questions about AI models (GPT, Claude, Gemini, Llama etc.), prompting techniques, or ML concepts — give detailed, accurate explanations from your training knowledge.
-- For news/current events questions where you lack context, explain what you know about the topic generally.
-- Never just say "no" or "I don't know" — always provide useful context or explanation.
-- Use plain text, no markdown. Be direct and clear.`;
+- Answer ONLY from the article content above. Quote or paraphrase specific parts when relevant.
+- If asked to summarize: give a concise summary of what the article actually says.
+- If the question asks about something not in the article, say so, then describe what the article does cover.
+- You may explain technical terms or acronyms that appear in the article.
+- Use plain text, no markdown. Be direct and concise.`
+    : `You are a helpful assistant. The article content has not loaded yet.
+
+Article title: "${req.articleTitle}"
+${hasSelection ? `\nUser highlighted: "${req.selectedText}"` : ''}
+
+User question: ${req.question}
+
+The article text hasn't been extracted yet — it may still be loading. Tell the user you don't have the article content yet and suggest waiting a moment for the page to fully load before asking again. If they highlighted a passage, you can answer about that specifically.`;
 
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
