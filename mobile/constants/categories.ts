@@ -8,14 +8,14 @@ export interface CategoryMeta {
 }
 
 export const CATEGORIES: CategoryMeta[] = [
-  { key: 'all',          label: 'All',          emoji: '🌐', gradient: ['#1a1a2e', '#16213e'] },
-  { key: 'ai',           label: 'AI',           emoji: '🤖', gradient: ['#4a00e0', '#8e2de2'] },
-  { key: 'tech',         label: 'Tech',         emoji: '💻', gradient: ['#0052d4', '#4364f7'] },
-  { key: 'startups',     label: 'Startups',     emoji: '🚀', gradient: ['#f7971e', '#ffd200'] },
-  { key: 'product',      label: 'Product',      emoji: '📱', gradient: ['#11998e', '#38ef7d'] },
-  { key: 'companies',    label: 'Companies',    emoji: '🏢', gradient: ['#434343', '#000000'] },
-  { key: 'geopolitical', label: 'World',        emoji: '🌍', gradient: ['#c0392b', '#e74c3c'] },
-  { key: 'learn',        label: 'Learn',        emoji: '🧠', gradient: ['#6a3093', '#a044ff'] },
+  { key: 'all',          label: 'For You',      emoji: '✦',  gradient: ['#0f0c29', '#302b63'] },
+  { key: 'ai',           label: 'AI',           emoji: '⚡', gradient: ['#3b0764', '#7c3aed'] },
+  { key: 'tech',         label: 'Tech',         emoji: '◈',  gradient: ['#0c1445', '#1e3a8a'] },
+  { key: 'startups',     label: 'Startups',     emoji: '◎',  gradient: ['#431407', '#c2410c'] },
+  { key: 'product',      label: 'Product',      emoji: '◇',  gradient: ['#064e3b', '#059669'] },
+  { key: 'companies',    label: 'Companies',    emoji: '▣',  gradient: ['#1c1917', '#44403c'] },
+  { key: 'geopolitical', label: 'World',        emoji: '◉',  gradient: ['#3b0000', '#991b1b'] },
+  { key: 'learn',        label: 'Learn',        emoji: '◈',  gradient: ['#1e1b4b', '#4f46e5'] },
 ];
 
 export function getCategoryMeta(key: Category): CategoryMeta {

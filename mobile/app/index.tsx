@@ -78,6 +78,7 @@ export default function FeedScreen() {
           maxToRenderPerBatch={5}
           windowSize={7}
           removeClippedSubviews
+          scrollsToTop={false}
         />
       )}
 
