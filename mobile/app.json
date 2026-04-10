@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "News Reels",
+    "slug": "news-reels",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "newsreels",
+    "userInterfaceStyle": "dark",
+    "platforms": ["ios", "android"],
+    "plugins": [
+      "expo-router",
+      [
+        "react-native-webview",
+        {
+          "allowsInlineMediaPlayback": true
+        }
+      ]
+    ],
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      }
+    },
+    "ios": {
+      "supportsTablet": false
+    }
+  }
+}
