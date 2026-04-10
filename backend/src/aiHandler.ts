@@ -13,39 +13,62 @@ export interface AiRequest {
 }
 
 export async function askGemini(req: AiRequest): Promise<string> {
-  const hasPageContent = req.pageContent && req.pageContent.trim().length > 100;
-  const hasSelection = req.selectedText && req.selectedText.trim().length > 5;
+  const content = req.pageContent?.trim() ?? '';
+  // Rich: WebView extracted the full article (>400 chars)
+  const hasRichContent = content.length > 400;
+  // Partial: at least have the RSS description/snippet (>20 chars)
+  const hasPartialContent = content.length > 20;
+  const hasSelection = (req.selectedText?.trim().length ?? 0) > 5;
 
-  const prompt = hasPageContent
-    ? `You are a helpful assistant. Answer questions strictly based on the article content below. Do not use outside knowledge except to briefly explain technical terms that appear in the article.
+  let prompt: string;
+
+  if (hasRichContent) {
+    // Full article extracted — answer strictly from the article
+    prompt = `You are a helpful assistant. Answer questions strictly based on the article content below.
 
 Article title: "${req.articleTitle}"
 
 Article content:
-${req.pageContent!.substring(0, 4000)}
-${hasSelection ? `\nUser highlighted this specific passage:\n"${req.selectedText}"` : ''}
+${content.substring(0, 4500)}
+${hasSelection ? `\nUser highlighted this passage:\n"${req.selectedText}"` : ''}
 
 User question: ${req.question}
 
 Instructions:
-- Answer ONLY from the article content above. Quote or paraphrase specific parts when relevant.
-- If asked to summarize: give a concise summary of what the article actually says.
-- If the question asks about something not in the article, say so, then describe what the article does cover.
-- You may explain technical terms or acronyms that appear in the article.
-- Use plain text, no markdown. Be direct and concise.`
-    : `You are a helpful assistant. The article content has not loaded yet.
+- Answer ONLY from the article content above.
+- If asked to summarize: give a clear, concise summary of what the article actually says.
+- If the question is about something not covered in the article, say so briefly, then describe what the article does cover.
+- You may clarify technical terms that appear in the article.
+- Plain text, no markdown, no bullet points unless listing things from the article. Be direct.`;
+
+  } else if (hasPartialContent) {
+    // Only have the RSS snippet — answer from title + snippet + background knowledge
+    prompt = `You are a helpful assistant for a news app.
+
+Article title: "${req.articleTitle}"
+Brief description: "${content}"
+${hasSelection ? `\nUser highlighted: "${req.selectedText}"` : ''}
+
+User question: ${req.question}
+
+The full article hasn't been extracted yet — only the headline and a brief snippet are available. Answer helpfully based on the title, snippet, and your knowledge of this topic. Be honest that you're working from limited information and the full article will give more detail. Don't make up specific facts not implied by the title/snippet. Plain text, direct and useful.`;
+
+  } else {
+    // Nothing at all — answer from title + general knowledge
+    prompt = `You are a helpful assistant for a news app.
 
 Article title: "${req.articleTitle}"
 ${hasSelection ? `\nUser highlighted: "${req.selectedText}"` : ''}
 
 User question: ${req.question}
 
-The article text hasn't been extracted yet — it may still be loading. Tell the user you don't have the article content yet and suggest waiting a moment for the page to fully load before asking again. If they highlighted a passage, you can answer about that specifically.`;
+The article content hasn't loaded yet. Answer based on the headline and your knowledge of this topic. Be helpful and informative, but note you haven't read the actual article. Plain text, direct.`;
+  }
 
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      temperature: 0.5,
+      temperature: 0.4,
       maxOutputTokens: 1024,
     },
   };

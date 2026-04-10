@@ -6,84 +6,73 @@ export interface FeedSource {
   name: string;
   url: string;
   category: Category;
-  logoUrl?: string;
 }
 
 export const FEED_SOURCES: FeedSource[] = [
   // ── AI ──────────────────────────────────────────────────────────────────
-  { name: 'OpenAI',           url: 'https://openai.com/blog/rss.xml',                           category: 'ai' },
-  { name: 'Anthropic',        url: 'https://www.anthropic.com/rss.xml',                          category: 'ai' },
-  { name: 'Google DeepMind',  url: 'https://deepmind.google/blog/rss.xml',                       category: 'ai' },
-  { name: 'Google AI',        url: 'https://blog.google/technology/ai/rss/',                     category: 'ai' },
-  { name: 'Meta AI',          url: 'https://ai.meta.com/blog/feed/',                             category: 'ai' },
-  { name: 'Mistral AI',       url: 'https://mistral.ai/news/feed.xml',                           category: 'ai' },
-  { name: 'The Decoder',      url: 'https://the-decoder.com/feed/',                              category: 'ai' },
-  { name: 'VentureBeat AI',   url: 'https://venturebeat.com/category/ai/feed/',                  category: 'ai' },
-  { name: 'MIT Tech Review AI', url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed', category: 'ai' },
-  { name: 'Hugging Face',     url: 'https://huggingface.co/blog/feed.xml',                       category: 'ai' },
+  // Note: Anthropic, Meta AI, Mistral have no official RSS feeds.
+  // Reuters RSS is dead since 2020 — not used anywhere below.
+  { name: 'OpenAI',               url: 'https://openai.com/news/rss.xml',                                      category: 'ai' },
+  { name: 'Google DeepMind',      url: 'https://deepmind.google/blog/rss.xml',                                  category: 'ai' },
+  { name: 'Google Research',      url: 'https://research.google/blog/rss/',                                     category: 'ai' },
+  { name: 'Hugging Face',         url: 'https://huggingface.co/blog/feed.xml',                                  category: 'ai' },
+  { name: 'The Decoder',          url: 'https://the-decoder.com/feed/',                                         category: 'ai' },
+  { name: 'VentureBeat AI',       url: 'https://venturebeat.com/category/ai/feed/',                             category: 'ai' },
+  { name: 'MIT Tech Review AI',   url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed',   category: 'ai' },
+  { name: 'The Gradient',         url: 'https://thegradient.pub/rss/',                                          category: 'ai' },
 
   // ── TECH ────────────────────────────────────────────────────────────────
-  { name: 'TechCrunch',       url: 'https://techcrunch.com/feed/',                               category: 'tech' },
-  { name: 'The Verge',        url: 'https://www.theverge.com/rss/index.xml',                     category: 'tech' },
-  { name: 'Ars Technica',     url: 'https://feeds.arstechnica.com/arstechnica/index',            category: 'tech' },
-  { name: 'Wired',            url: 'https://www.wired.com/feed/rss',                             category: 'tech' },
+  { name: 'TechCrunch',           url: 'https://techcrunch.com/feed/',                                          category: 'tech' },
+  { name: 'The Verge',            url: 'https://www.theverge.com/rss/index.xml',                                category: 'tech' },
+  { name: 'Ars Technica',         url: 'https://feeds.arstechnica.com/arstechnica/index',                       category: 'tech' },
+  { name: 'Wired',                url: 'https://www.wired.com/feed/rss',                                        category: 'tech' },
+  { name: '9to5Google',           url: 'https://9to5google.com/feed/',                                          category: 'tech' },
 
   // ── STARTUPS ─────────────────────────────────────────────────────────────
-  // Global funding rounds, new ideas, startup launches
-  { name: 'TechCrunch Startups', url: 'https://techcrunch.com/category/startups/feed/',         category: 'startups' },
-  { name: 'TechCrunch Venture',  url: 'https://techcrunch.com/category/venture/feed/',          category: 'startups' },
-  { name: 'Crunchbase News',     url: 'https://news.crunchbase.com/feed/',                       category: 'startups' },
-  { name: 'YCombinator Blog',    url: 'https://www.ycombinator.com/blog/rss.xml',               category: 'startups' },
-  // India startups
-  { name: 'Inc42',               url: 'https://inc42.com/feed/',                                 category: 'startups' },
-  { name: 'YourStory',           url: 'https://yourstory.com/feed/',                             category: 'startups' },
-  // Europe
-  { name: 'Sifted',              url: 'https://sifted.eu/feed/',                                 category: 'startups' },
+  // Global + India + Europe — funding rounds, new companies, ideas
+  { name: 'TechCrunch Startups',  url: 'https://techcrunch.com/category/startups/feed/',                        category: 'startups' },
+  { name: 'TechCrunch Venture',   url: 'https://techcrunch.com/category/venture/feed/',                         category: 'startups' },
+  { name: 'TechCrunch Fundings',  url: 'https://techcrunch.com/fundings-exits/feed/',                           category: 'startups' },
+  { name: 'YCombinator',          url: 'https://www.ycombinator.com/blog/rss.xml',                              category: 'startups' },
+  { name: 'EU-Startups',          url: 'https://www.eu-startups.com/feed/',                                     category: 'startups' },
+  // India
+  { name: 'Inc42',                url: 'https://inc42.com/feed/',                                               category: 'startups' },
+  { name: 'YourStory',            url: 'https://yourstory.com/feed/',                                           category: 'startups' },
 
   // ── PRODUCT ─────────────────────────────────────────────────────────────
-  { name: '9to5Mac',          url: 'https://9to5mac.com/feed/',                                  category: 'product' },
-  { name: 'TechCrunch Apps',  url: 'https://techcrunch.com/category/apps/feed/',                 category: 'product' },
-  { name: 'The Verge Product', url: 'https://www.theverge.com/rss/full.xml',                    category: 'product' },
+  { name: '9to5Mac',              url: 'https://9to5mac.com/feed/',                                             category: 'product' },
+  { name: '9to5Google',           url: 'https://9to5google.com/feed/',                                          category: 'product' },
+  { name: 'TechCrunch Apps',      url: 'https://techcrunch.com/category/apps/feed/',                            category: 'product' },
+  { name: 'Android Authority',    url: 'https://www.androidauthority.com/feed/',                                category: 'product' },
+  { name: 'The Verge',            url: 'https://www.theverge.com/rss/index.xml',                                category: 'product' },
 
   // ── COMPANIES ───────────────────────────────────────────────────────────
-  { name: 'Reuters Tech',     url: 'https://feeds.reuters.com/reuters/technologyNews',           category: 'companies' },
-  { name: 'CNBC Tech',        url: 'https://www.cnbc.com/id/19854910/device/rss/rss.html',      category: 'companies' },
-  { name: 'Fortune Tech',     url: 'https://fortune.com/section/tech/feed',                      category: 'companies' },
-  { name: 'Reuters Business', url: 'https://feeds.reuters.com/reuters/businessNews',             category: 'companies' },
+  { name: 'CNBC Tech',            url: 'https://www.cnbc.com/id/15838652/device/rss/rss.html',                  category: 'companies' },
+  { name: 'Fortune Tech',         url: 'https://fortune.com/section/tech/feed',                                  category: 'companies' },
+  { name: 'MarketWatch',          url: 'https://feeds.marketwatch.com/marketwatch/topstories/',                  category: 'companies' },
+  { name: 'VentureBeat',          url: 'https://venturebeat.com/feed/',                                         category: 'companies' },
 
-  // ── WORLD (GEOPOLITICAL + MARKETS) ──────────────────────────────────────
-  // World events
-  { name: 'BBC World',        url: 'http://feeds.bbci.co.uk/news/world/rss.xml',                category: 'geopolitical' },
-  { name: 'Reuters World',    url: 'https://feeds.reuters.com/reuters/worldNews',               category: 'geopolitical' },
-  { name: 'Al Jazeera',       url: 'https://www.aljazeera.com/xml/rss/all.xml',                 category: 'geopolitical' },
-  { name: 'Foreign Policy',   url: 'https://foreignpolicy.com/feed/',                           category: 'geopolitical' },
-  // Markets & economy — gold, currency, macro
-  { name: 'Reuters Markets',  url: 'https://feeds.reuters.com/reuters/businessNews',            category: 'geopolitical' },
-  { name: 'MarketWatch',      url: 'https://feeds.marketwatch.com/marketwatch/topstories/',     category: 'geopolitical' },
+  // ── WORLD — Geopolitics + Markets ───────────────────────────────────────
+  // Free sources only. Reuters RSS is dead. Foreign Policy is paywalled.
+  // Coverage: world events, conflicts, diplomacy, gold/macro, market moves.
+  { name: 'BBC World',            url: 'https://feeds.bbci.co.uk/news/world/rss.xml',                           category: 'geopolitical' },
+  { name: 'Al Jazeera',           url: 'https://www.aljazeera.com/xml/rss/all.xml',                             category: 'geopolitical' },
+  { name: 'UN News',              url: 'https://news.un.org/feed/subscribe/en/news/all/rss.xml',                category: 'geopolitical' },
+  { name: 'Chatham House',        url: 'https://www.chathamhouse.org/rss/all',                                  category: 'geopolitical' },
+  { name: 'Crisis Group',         url: 'https://www.crisisgroup.org/rss',                                       category: 'geopolitical' },
+  { name: 'ECFR',                 url: 'https://ecfr.eu/feed/',                                                  category: 'geopolitical' },
+  { name: 'MarketWatch',          url: 'https://feeds.marketwatch.com/marketwatch/topstories/',                  category: 'geopolitical' },
+  { name: 'Global Voices',        url: 'https://globalvoices.org/feeds/',                                        category: 'geopolitical' },
 
-  // ── LEARN ────────────────────────────────────────────────────────────────
-  // How to use AI better, prompting techniques, new AI tools, AI in daily life
-
-  // Practical AI usage & prompting for everyday people
-  { name: 'One Useful Thing — Ethan Mollick', url: 'https://www.oneusefulthing.org/feed',      category: 'learn' },
-  { name: 'Simon Willison',   url: 'https://simonwillison.net/atom/everything/',                category: 'learn' },
-
-  // AI engineering & building with AI
-  { name: 'Latent Space',     url: 'https://www.latent.space/feed',                             category: 'learn' },
-  { name: "Ben's Bites",      url: 'https://bensbites.beehiiv.com/feed',                        category: 'learn' },
-
-  // Deep technical — models, training, research
-  { name: "Lil'Log — Lilian Weng", url: 'https://lilianweng.github.io/index.xml',              category: 'learn' },
-  { name: 'Andrej Karpathy',  url: 'https://karpathy.substack.com/feed',                        category: 'learn' },
-
-  // Weekly digests
-  { name: 'The Batch — DeepLearning.AI', url: 'https://www.deeplearning.ai/the-batch/feed/',   category: 'learn' },
-  { name: 'Interconnects — Nathan Lambert', url: 'https://www.interconnects.ai/feed',           category: 'learn' },
-
-  // Open source models & releases
-  { name: 'Hugging Face Blog', url: 'https://huggingface.co/blog/feed.xml',                    category: 'learn' },
-  { name: 'Anthropic Research', url: 'https://www.anthropic.com/rss.xml',                      category: 'learn' },
-
-  // Research breakdowns
-  { name: 'The Gradient',     url: 'https://thegradient.pub/rss/',                              category: 'learn' },
+  // ── LEARN ─────────────────────────────────────────────────────────────
+  // How to use AI better, prompting techniques, building with AI, new models
+  { name: 'One Useful Thing',     url: 'https://www.oneusefulthing.org/feed',                                   category: 'learn' },
+  { name: 'Simon Willison',       url: 'https://simonwillison.net/atom/everything/',                            category: 'learn' },
+  { name: 'Latent Space',         url: 'https://www.latent.space/feed',                                         category: 'learn' },
+  { name: "Ben's Bites",          url: 'https://bensbites.substack.com/feed',                                   category: 'learn' },
+  { name: "Lil'Log",              url: 'https://lilianweng.github.io/index.xml',                                 category: 'learn' },
+  { name: 'Interconnects',        url: 'https://www.interconnects.ai/feed',                                     category: 'learn' },
+  { name: 'The Gradient',         url: 'https://thegradient.pub/rss/',                                          category: 'learn' },
+  { name: 'Hugging Face Blog',    url: 'https://huggingface.co/blog/feed.xml',                                  category: 'learn' },
+  { name: 'The Batch',            url: 'https://www.deeplearning.ai/the-batch/feed/',                           category: 'learn' },
 ];
