@@ -1,12 +1,10 @@
 import axios from 'axios';
 
-// Primary: 2.0-flash is stable and fast on free tier.
-// Fallback: 2.0-flash-lite if primary is rate-limited or unavailable.
-const MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
-
-function geminiUrl(model: string) {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
-}
+// Groq free tier: 14,400 req/day, sub-1s responses, no billing required.
+// Model: llama-3.3-70b-versatile is high quality and very fast.
+// Fallback: gemini-2.0-flash if GEMINI_API_KEY is also set.
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 export interface AiRequest {
   question: string;
@@ -15,84 +13,116 @@ export interface AiRequest {
   articleTitle: string;
 }
 
-function buildPrompt(req: AiRequest): string {
+function buildSystemPrompt(req: AiRequest): { system: string; user: string } {
   const content = req.pageContent?.trim() ?? '';
   const hasRichContent = content.length > 400;
   const hasPartialContent = content.length > 20;
   const hasSelection = (req.selectedText?.trim().length ?? 0) > 5;
 
-  const noMarkdown = 'PLAIN TEXT ONLY. No asterisks, no bullet symbols, no bold markers, no markdown. If listing items use "1. ... 2. ... 3. ..." format. Short paragraphs.';
+  const noMarkdown = 'Use plain text only. No asterisks, no bullet symbols, no bold markers, no markdown. If you need to list items, use "1. ... 2. ... 3. ..." format. Short paragraphs.';
 
   if (hasRichContent) {
-    return `You are a helpful assistant. Answer questions strictly based on the article content below.
-
-Article title: "${req.articleTitle}"
+    const system = `You are a helpful assistant that answers questions about news articles. ${noMarkdown}`;
+    const user = `Article title: "${req.articleTitle}"
 
 Article content:
 ${content.substring(0, 4500)}
-${hasSelection ? `\nUser highlighted this passage:\n"${req.selectedText}"` : ''}
+${hasSelection ? `\nUser highlighted: "${req.selectedText}"` : ''}
 
-User question: ${req.question}
+Question: ${req.question}
 
-Instructions:
-- Answer ONLY from the article content above.
-- If asked to summarize: give a clear concise summary of what the article actually says.
-- If the question is about something not in the article, say so briefly.
-- You may clarify technical terms that appear in the article.
-- ${noMarkdown}`;
+Answer only from the article content. If asked to summarize, summarize what the article actually says. If the question is not covered in the article, say so briefly.`;
+    return { system, user };
   }
 
   if (hasPartialContent) {
-    return `You are a helpful assistant for a news app.
-
-Article title: "${req.articleTitle}"
+    const system = `You are a helpful assistant for a news app. ${noMarkdown}`;
+    const user = `Article title: "${req.articleTitle}"
 Brief description: "${content}"
-${hasSelection ? `\nUser highlighted: "${req.selectedText}"` : ''}
+${hasSelection ? `User highlighted: "${req.selectedText}"` : ''}
 
-User question: ${req.question}
+Question: ${req.question}
 
-Only the headline and a brief snippet are available. Answer helpfully using the title, snippet, and your knowledge of this topic. Note you are working from limited info. Do not invent specific facts.
-${noMarkdown} Be direct and useful.`;
+Only the headline and a short description are available. Answer based on these and your knowledge of this topic. Be honest that you are working from limited information.`;
+    return { system, user };
   }
 
-  return `You are a helpful assistant for a news app.
+  const system = `You are a helpful assistant for a news app. ${noMarkdown}`;
+  const user = `Article title: "${req.articleTitle}"
+${hasSelection ? `User highlighted: "${req.selectedText}"` : ''}
 
-Article title: "${req.articleTitle}"
-${hasSelection ? `\nUser highlighted: "${req.selectedText}"` : ''}
+Question: ${req.question}
 
-User question: ${req.question}
-
-The article content has not loaded yet. Answer based on the headline and your knowledge of this topic. Note you have not read the article.
-${noMarkdown} Be direct.`;
+The article has not loaded yet. Answer based on the headline and your general knowledge of this topic. Note you have not read the article.`;
+  return { system, user };
 }
 
-export async function askGemini(req: AiRequest): Promise<string> {
-  const prompt = buildPrompt(req);
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 800 },
-  };
+export async function askGroq(req: AiRequest): Promise<string> {
+  const { system, user } = buildSystemPrompt(req);
 
-  let lastError: any;
-  for (const model of MODELS) {
+  const response = await axios.post(
+    GROQ_URL,
+    {
+      model: GROQ_MODEL,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      max_tokens: 800,
+      temperature: 0.4,
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      timeout: 15000,
+    }
+  );
+
+  const text = response.data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error('Empty response from Groq');
+  return text.trim();
+}
+
+// Keep Gemini as fallback if GEMINI_API_KEY is set
+async function askGeminiFallback(req: AiRequest): Promise<string> {
+  const { system, user } = buildSystemPrompt(req);
+  const prompt = `${system}\n\n${user}`;
+  const model = 'gemini-2.0-flash-lite';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+  const response = await axios.post(
+    url,
+    {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: 800 },
+    },
+    { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+  );
+
+  const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Empty response from Gemini');
+  return text.trim();
+}
+
+export async function askAI(req: AiRequest): Promise<string> {
+  // Try Groq first (more generous free tier)
+  if (process.env.GROQ_API_KEY) {
     try {
-      const response = await axios.post(geminiUrl(model), body, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 15000,
-      });
-      const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text.trim();
-      throw new Error('Empty response');
+      return await askGroq(req);
     } catch (err: any) {
       const status = err?.response?.status;
-      // Only retry on rate limit (429) or server overload (503)
-      if (status === 429 || status === 503 || status === 500) {
-        lastError = err;
-        await new Promise((r) => setTimeout(r, 800));
-        continue;
-      }
-      throw err;
+      // Only fall through to Gemini on rate limit or server errors
+      if (status !== 429 && status !== 503 && status !== 500) throw err;
+      console.warn('[AI] Groq failed with', status, '— trying Gemini fallback');
     }
   }
-  throw lastError ?? new Error('All models failed');
+
+  // Fallback to Gemini
+  if (process.env.GEMINI_API_KEY) {
+    return await askGeminiFallback(req);
+  }
+
+  throw new Error('No AI API key configured');
 }

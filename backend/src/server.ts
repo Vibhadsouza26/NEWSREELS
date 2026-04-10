@@ -3,7 +3,7 @@ import cors from 'cors';
 import NodeCache from 'node-cache';
 import { fetchAllFeeds, NewsItem } from './rssParser';
 import { fetchHNStories } from './hnApi';
-import { askGemini, AiRequest } from './aiHandler';
+import { askAI, AiRequest } from './aiHandler';
 import { ALL_CATEGORIES, Category } from './feedSources';
 
 // Load .env for local development (Vercel injects env vars automatically)
@@ -79,7 +79,7 @@ app.post('/api/ai/ask', async (req, res) => {
       return res.status(400).json({ error: 'question and articleTitle are required' });
     }
 
-    const answer = await askGemini({ question, selectedText, pageContent, articleTitle });
+    const answer = await askAI({ question, selectedText, pageContent, articleTitle });
     return res.json({ answer });
   } catch (err: any) {
     console.error('[/api/ai/ask]', err.message);
