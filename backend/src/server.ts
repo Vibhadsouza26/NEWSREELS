@@ -29,15 +29,6 @@ app.get('/api/categories', (_req, res) => {
   res.json({ categories: ALL_CATEGORIES });
 });
 
-// ── GET /api/debug ───────────────────────────────────────────────────────────
-app.get('/api/debug', (_req, res) => {
-  res.json({
-    groq: !!process.env.GROQ_API_KEY,
-    gemini: !!process.env.GEMINI_API_KEY,
-    groqPrefix: process.env.GROQ_API_KEY?.substring(0, 8) ?? 'not set',
-  });
-});
-
 // ── GET /api/news?category=ai ───────────────────────────────────────────────
 app.get('/api/news', async (req, res) => {
   try {
