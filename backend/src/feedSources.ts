@@ -11,19 +11,10 @@ export interface FeedSource {
 
 export const FEED_SOURCES: FeedSource[] = [
   // ── AI ──────────────────────────────────────────────────────────────────
+  // Big lab blogs — model launches, safety, research announcements
   {
     name: 'OpenAI',
     url: 'https://openai.com/blog/rss.xml',
-    category: 'ai',
-  },
-  {
-    name: 'Hugging Face',
-    url: 'https://huggingface.co/blog/feed.xml',
-    category: 'ai',
-  },
-  {
-    name: 'Google AI',
-    url: 'https://blog.google/technology/ai/rss/',
     category: 'ai',
   },
   {
@@ -32,13 +23,45 @@ export const FEED_SOURCES: FeedSource[] = [
     category: 'ai',
   },
   {
-    name: 'MIT Tech Review AI',
-    url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed',
+    name: 'Google DeepMind',
+    url: 'https://deepmind.google/blog/rss.xml',
+    category: 'ai',
+  },
+  {
+    name: 'Google AI',
+    url: 'https://blog.google/technology/ai/rss/',
+    category: 'ai',
+  },
+  {
+    name: 'Meta AI',
+    url: 'https://ai.meta.com/blog/feed/',
+    category: 'ai',
+  },
+  {
+    name: 'Mistral AI',
+    url: 'https://mistral.ai/news/feed.xml',
+    category: 'ai',
+  },
+  // High-frequency AI news
+  {
+    name: 'The Decoder',
+    url: 'https://the-decoder.com/feed/',
     category: 'ai',
   },
   {
     name: 'VentureBeat AI',
     url: 'https://venturebeat.com/category/ai/feed/',
+    category: 'ai',
+  },
+  {
+    name: 'MIT Tech Review AI',
+    url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed',
+    category: 'ai',
+  },
+  // Open source models & HuggingFace
+  {
+    name: 'Hugging Face',
+    url: 'https://huggingface.co/blog/feed.xml',
     category: 'ai',
   },
 
@@ -128,17 +151,56 @@ export const FEED_SOURCES: FeedSource[] = [
     category: 'geopolitical',
   },
 
-  // ── LEARN ───────────────────────────────────────────────────────────────
+  // ── LEARN ─────────────────────────────────────────────────────────────
+  // Prompting techniques, model deep-dives, open source releases, benchmarks
+
+  // Best technical writers on how models work + prompting
   {
-    name: "Lil'Log (Lilian Weng)",
+    name: "Lil'Log — Lilian Weng",
     url: 'https://lilianweng.github.io/index.xml',
     category: 'learn',
   },
   {
-    name: 'Simon Willison',
+    name: 'Andrej Karpathy',
+    url: 'https://karpathy.substack.com/feed',
+    category: 'learn',
+  },
+  {
+    name: 'Simon Willison',         // real-world LLM usage, prompting tricks, tool use
     url: 'https://simonwillison.net/atom/everything/',
     category: 'learn',
   },
+  {
+    name: 'Ahead of AI — Sebastian Raschka',   // LLM research, open source models
+    url: 'https://magazine.sebastianraschka.com/feed',
+    category: 'learn',
+  },
+  {
+    name: 'The Batch — DeepLearning.AI',       // Andrew Ng's weekly AI digest
+    url: 'https://www.deeplearning.ai/the-batch/feed/',
+    category: 'learn',
+  },
+
+  // Open source model news — what's on HuggingFace, new releases
+  {
+    name: 'Hugging Face Blog',
+    url: 'https://huggingface.co/blog/feed.xml',
+    category: 'learn',
+  },
+  {
+    name: 'Interconnects — Nathan Lambert',    // RLHF, fine-tuning, model evals
+    url: 'https://www.interconnects.ai/feed',
+    category: 'learn',
+  },
+
+  // What big players are doing — model cards, evals, system prompts
+  {
+    name: 'Anthropic Research',
+    url: 'https://www.anthropic.com/rss.xml',
+    category: 'learn',
+  },
+
+  // Broader research & technique breakdowns
   {
     name: 'The Gradient',
     url: 'https://thegradient.pub/rss/',
@@ -150,33 +212,13 @@ export const FEED_SOURCES: FeedSource[] = [
     category: 'learn',
   },
   {
-    name: 'Interconnects',
-    url: 'https://www.interconnects.ai/feed',
+    name: 'Last Week in AI',
+    url: 'https://lastweekinai.substack.com/feed',
     category: 'learn',
   },
   {
-    name: 'Sebastian Ruder',
-    url: 'https://ruder.io/rss/index.rss',
-    category: 'learn',
-  },
-  {
-    name: 'Andrej Karpathy',
-    url: 'https://karpathy.substack.com/feed',
-    category: 'learn',
-  },
-  {
-    name: 'Hugging Face Papers',
-    url: 'https://huggingface.co/blog/feed.xml',
-    category: 'learn',
-  },
-  {
-    name: 'Distill.pub',
-    url: 'https://distill.pub/rss.xml',
-    category: 'learn',
-  },
-  {
-    name: 'Anthropic Research',
-    url: 'https://www.anthropic.com/rss.xml',
+    name: 'Import AI — Jack Clark',
+    url: 'https://importai.substack.com/feed',
     category: 'learn',
   },
 ];
