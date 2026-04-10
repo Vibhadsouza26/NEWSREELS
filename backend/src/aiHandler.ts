@@ -39,7 +39,7 @@ Instructions:
 - If asked to summarize: give a clear, concise summary of what the article actually says.
 - If the question is about something not covered in the article, say so briefly, then describe what the article does cover.
 - You may clarify technical terms that appear in the article.
-- Plain text, no markdown, no bullet points unless listing things from the article. Be direct.`;
+- PLAIN TEXT ONLY. No asterisks, no bullet symbols, no bold markers, no markdown. If listing items, use "1. ... 2. ... 3. ..." format. Write in short paragraphs. Be direct.`;
 
   } else if (hasPartialContent) {
     // Only have the RSS snippet — answer from title + snippet + background knowledge
@@ -51,7 +51,7 @@ ${hasSelection ? `\nUser highlighted: "${req.selectedText}"` : ''}
 
 User question: ${req.question}
 
-The full article hasn't been extracted yet — only the headline and a brief snippet are available. Answer helpfully based on the title, snippet, and your knowledge of this topic. Be honest that you're working from limited information and the full article will give more detail. Don't make up specific facts not implied by the title/snippet. Plain text, direct and useful.`;
+The full article hasn't been extracted yet — only the headline and brief snippet are available. Answer helpfully using the title, snippet, and your knowledge of this topic. Note you're working from limited info. Don't invent specific facts. PLAIN TEXT ONLY — no asterisks, no bullet symbols, no markdown formatting whatsoever. Use numbered sentences if listing: "1. ... 2. ..." Short paragraphs, direct.`;
 
   } else {
     // Nothing at all — answer from title + general knowledge
@@ -62,7 +62,7 @@ ${hasSelection ? `\nUser highlighted: "${req.selectedText}"` : ''}
 
 User question: ${req.question}
 
-The article content hasn't loaded yet. Answer based on the headline and your knowledge of this topic. Be helpful and informative, but note you haven't read the actual article. Plain text, direct.`;
+The article content hasn't loaded yet. Answer based on the headline and your knowledge of this topic. Be helpful, note you haven't read the article. PLAIN TEXT ONLY — no asterisks, no bullet symbols, no markdown. Short paragraphs, direct.`;
   }
 
   const body = {

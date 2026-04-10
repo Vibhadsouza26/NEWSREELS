@@ -31,7 +31,12 @@ interface Props {
   pageContent?: string;
 }
 
-const QUICK_ACTIONS = ['Summarize this article', 'Key takeaways', 'Explain simply'];
+const QUICK_ACTIONS = [
+  { label: 'Summarize', question: 'Summarize this article' },
+  { label: 'Key takeaways', question: 'What are the key takeaways?' },
+  { label: 'Explain simply', question: 'Explain this simply' },
+  { label: "What's the impact?", question: "What is the impact or significance of this?" },
+];
 
 export default function AiBottomSheet({
   visible,
@@ -123,21 +128,25 @@ export default function AiBottomSheet({
             </TouchableOpacity>
           </View>
 
-          {/* Quick actions (only before any message) */}
-          {messages.length === 0 && (
-            <View style={styles.quickActions}>
-              {QUICK_ACTIONS.map((q) => (
-                <TouchableOpacity
-                  key={q}
-                  style={styles.quickPill}
-                  onPress={() => ask(q)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.quickPillText}>{q}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          {/* Quick actions — always visible as compact chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.quickActionsBar}
+            contentContainerStyle={styles.quickActionsContent}
+          >
+            {QUICK_ACTIONS.map((a) => (
+              <TouchableOpacity
+                key={a.label}
+                style={styles.quickPill}
+                onPress={() => ask(a.question)}
+                activeOpacity={0.7}
+                disabled={loading}
+              >
+                <Text style={styles.quickPillText}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
           {/* Messages */}
           <ScrollView
@@ -250,25 +259,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'rgba(255,255,255,0.5)',
   },
-  quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  quickActionsBar: {
+    flexShrink: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  quickActionsContent: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     gap: 8,
+    flexDirection: 'row',
   },
   quickPill: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(167,139,250,0.15)',
-    borderRadius: 16,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(124,58,237,0.18)',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.3)',
+    borderColor: 'rgba(124,58,237,0.35)',
   },
   quickPillText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#c4b5fd',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   messages: {
     flex: 1,
