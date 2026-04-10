@@ -21,8 +21,10 @@ const parser = new Parser({
       ['enclosure', 'enclosure'],
     ],
   },
-  timeout: 5000,
+  timeout: 4000,
 });
+
+const MAX_AGE_DAYS = 14; // filter out articles older than 14 days
 
 function extractImage(item: any): string | undefined {
   // 1. media:content
@@ -54,9 +56,19 @@ function stripHtml(html: string): string {
 async function parseFeed(source: FeedSource): Promise<NewsItem[]> {
   try {
     const feed = await parser.parseURL(source.url);
+    const cutoff = Date.now() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+
     return (feed.items || [])
-      .filter((item) => item.link && item.title)
-      .slice(0, 20)
+      .filter((item) => {
+        if (!item.link || !item.title) return false;
+        const date = item.isoDate || item.pubDate;
+        if (date) {
+          const t = new Date(date).getTime();
+          if (!isNaN(t) && t < cutoff) return false; // skip old articles
+        }
+        return true;
+      })
+      .slice(0, 10) // max 10 per feed for speed
       .map((item) => {
         const url = item.link!;
         const id = crypto.createHash('md5').update(url).digest('hex');

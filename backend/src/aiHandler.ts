@@ -13,39 +13,35 @@ export interface AiRequest {
 }
 
 export async function askGemini(req: AiRequest): Promise<string> {
-  const contextParts: string[] = [];
+  const hasPageContent = req.pageContent && req.pageContent.trim().length > 100;
+  const hasSelection = req.selectedText && req.selectedText.trim().length > 5;
 
-  if (req.pageContent) {
-    const excerpt = req.pageContent.substring(0, 4000);
-    contextParts.push(`Article content:\n${excerpt}`);
-  }
+  const prompt = `You are an expert AI assistant helping someone understand news, research, and technology topics. You have deep knowledge of AI models, ML techniques, LLMs, startups, geopolitics, and tech industry developments up to your knowledge cutoff.
 
-  if (req.selectedText) {
-    contextParts.push(`Highlighted text the user is asking about:\n"${req.selectedText}"`);
-  }
+Article title: "${req.articleTitle}"
+${hasPageContent ? `\nArticle content (excerpt):\n${req.pageContent!.substring(0, 4000)}` : '\n(Full article text not available — answer from your knowledge based on the title and topic.)'}
+${hasSelection ? `\nUser highlighted this specific text:\n"${req.selectedText}"` : ''}
 
-  const systemContext = `You are a helpful reading assistant. The user is reading an article titled: "${req.articleTitle}".
-${contextParts.join('\n\n')}
+User question: ${req.question}
 
-Guidelines:
-- Be concise and clear. 2-4 sentences unless the question genuinely needs more.
-- Use plain conversational language, no markdown formatting.
-- If asked to summarize, focus on the key insight or news.
-- If the user asks a follow-up question, answer it directly using the article context.`;
-
-  const prompt = `${systemContext}\n\nUser: ${req.question}`;
+Instructions:
+- Answer thoroughly and helpfully. If the article content is available, use it. If not, draw on your own knowledge about the topic.
+- For questions about AI models (GPT, Claude, Gemini, Llama etc.), prompting techniques, or ML concepts — give detailed, accurate explanations from your training knowledge.
+- For news/current events questions where you lack context, explain what you know about the topic generally.
+- Never just say "no" or "I don't know" — always provide useful context or explanation.
+- Use plain text, no markdown. Be direct and clear.`;
 
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      temperature: 0.4,
-      maxOutputTokens: 512,
+      temperature: 0.5,
+      maxOutputTokens: 1024,
     },
   };
 
   const response = await axios.post(geminiUrl(), body, {
     headers: { 'Content-Type': 'application/json' },
-    timeout: 15000,
+    timeout: 20000,
   });
 
   const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
