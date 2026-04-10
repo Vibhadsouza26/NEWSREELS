@@ -12,9 +12,20 @@
       "resizeMode": "contain",
       "backgroundColor": "#0a0a0f"
     },
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ]
     ],
     "android": {
       "adaptiveIcon": {
@@ -25,6 +36,14 @@
     },
     "ios": {
       "supportsTablet": false
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "fd2f9dc1-55b5-4b88-83e1-dac554a286f0"
+      }
     }
   }
 }
