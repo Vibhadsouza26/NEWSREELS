@@ -5,7 +5,13 @@
   "build": {
     "preview": {
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "env": {
+          "EXPO_NO_BUNDLE_SPLITTING": "1"
+        }
+      },
+      "env": {
+        "EXPO_USE_HERMES": "1"
       }
     },
     "production": {
