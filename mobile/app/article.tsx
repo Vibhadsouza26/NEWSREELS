@@ -1,6 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
 import {
-  Dimensions,
   Platform,
   StyleSheet,
   Text,
@@ -11,28 +10,21 @@ import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import AiBottomSheet from '../components/AiBottomSheet';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+import { useLanguage } from './_layout';
 
 // Injected into WebView to:
-// 1. Extract page text content when loaded
-// 2. Detect text selection and post it back
+// 1. Set black background immediately (prevents white flash)
+// 2. Extract page text content when loaded
+// 3. Detect text selection and post it back
+const INJECTED_JS_BEFORE = `true;`;
+
 const INJECTED_JS = `
 (function() {
-  // Extract the best possible article text from the page
   function extractArticleText() {
     try {
-      // Try semantic article containers first (most news sites use these)
-      const selectors = [
-        'article',
-        '[role="main"]',
-        '.article-body',
-        '.article-content',
-        '.post-content',
-        '.entry-content',
-        '.story-body',
-        '.content-body',
-        'main',
+      var selectors = [
+        'article', '[role="main"]', '.article-body', '.article-content',
+        '.post-content', '.entry-content', '.story-body', '.content-body', 'main',
       ];
       for (var i = 0; i < selectors.length; i++) {
         var el = document.querySelector(selectors[i]);
@@ -40,45 +32,29 @@ const INJECTED_JS = `
           return el.innerText.trim().substring(0, 6000);
         }
       }
-      // Fallback: full body text
       return document.body ? document.body.innerText.trim().substring(0, 6000) : '';
-    } catch(e) {
-      return '';
-    }
+    } catch(e) { return ''; }
   }
 
   function sendPageContent() {
     var text = extractArticleText();
     if (text.length > 100) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'PAGE_CONTENT',
-        text: text
-      }));
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PAGE_CONTENT', text: text }));
     }
   }
 
-  // Wait for full page load for best extraction
   if (document.readyState === 'complete') {
     setTimeout(sendPageContent, 1000);
   } else {
-    window.addEventListener('load', function() {
-      setTimeout(sendPageContent, 1000);
-    });
-    // Also try after DOMContentLoaded as fallback
-    document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(sendPageContent, 2000);
-    });
+    window.addEventListener('load', function() { setTimeout(sendPageContent, 1000); });
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(sendPageContent, 2000); });
   }
 
-  // Listen for text selection
   document.addEventListener('selectionchange', function() {
     try {
       var sel = window.getSelection();
       var text = sel ? sel.toString().trim() : '';
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'TEXT_SELECTED',
-        text: text
-      }));
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'TEXT_SELECTED', text: text }));
     } catch(e) {}
   });
 })();
@@ -89,8 +65,8 @@ export default function ArticleScreen() {
   const router = useRouter();
   const { url, title, description } = useLocalSearchParams<{ url: string; title: string; description: string }>();
 
+  const { currentLang } = useLanguage();
   const [selectedText, setSelectedText] = useState('');
-  // Pre-seed with the RSS description so AI works immediately before WebView JS fires
   const [pageContent, setPageContent] = useState(description ?? '');
   const [showAi, setShowAi] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
@@ -99,7 +75,6 @@ export default function ArticleScreen() {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'PAGE_CONTENT') {
-        // Only upgrade if extracted content is richer than what we already have
         if (msg.text.length > pageContent.length) setPageContent(msg.text);
       } else if (msg.type === 'TEXT_SELECTED') {
         setSelectedText(msg.text);
@@ -142,16 +117,16 @@ export default function ArticleScreen() {
       <WebView
         source={{ uri: url }}
         style={styles.webview}
+        injectedJavaScriptBeforeContentLoaded={INJECTED_JS_BEFORE}
         injectedJavaScript={INJECTED_JS}
         onMessage={handleMessage}
         javaScriptEnabled
         domStorageEnabled
-        startInLoadingState
         allowsInlineMediaPlayback
         allowsBackForwardNavigationGestures={Platform.OS === 'ios'}
       />
 
-      {/* Floating "Ask AI about selection" button — appears when text is selected */}
+      {/* Floating "Ask AI about selection" button */}
       {hasSelection && !showAi && (
         <TouchableOpacity
           style={styles.selectionFab}
@@ -184,6 +159,14 @@ export default function ArticleScreen() {
         articleTitle={title ?? ''}
         selectedText={selectedText || undefined}
         pageContent={pageContent || undefined}
+        lang={currentLang}
+        onOpenArticle={(articleUrl, articleTitle) => {
+          setShowAi(false);
+          router.push({
+            pathname: '/article',
+            params: { url: articleUrl, title: articleTitle, description: '' },
+          });
+        }}
       />
     </View>
   );
@@ -233,7 +216,6 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   selectionFab: {
     position: 'absolute',

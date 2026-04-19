@@ -1,8 +1,7 @@
 import axios from 'axios';
+import { askSarvam } from './sarvamClient';
 
-// Groq free tier: 14,400 req/day, sub-1s responses, no billing required.
-// Model: llama-3.3-70b-versatile is high quality and very fast.
-// Fallback: gemini-2.0-flash if GEMINI_API_KEY is also set.
+// Groq — primary (best rate limits)
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
@@ -19,10 +18,12 @@ function buildSystemPrompt(req: AiRequest): { system: string; user: string } {
   const hasPartialContent = content.length > 20;
   const hasSelection = (req.selectedText?.trim().length ?? 0) > 5;
 
-  const noMarkdown = 'Use plain text only. No asterisks, no bullet symbols, no bold markers, no markdown. If you need to list items, use "1. ... 2. ... 3. ..." format. Short paragraphs.';
+  const noMarkdown = 'CRITICAL FORMAT RULES: Plain text only. NEVER use *, **, •, -, bullet symbols, or markdown. For lists ONLY use numbered format like "1. First point" "2. Second point". Never mix formats. Never use sub-bullets. Keep each point to 1-2 sentences max.';
+  const multilingualHint = 'If the user writes in any Indian language, respond in that same language.';
+  const followUpHint = 'After your answer, on a new line write FOLLOW_UP: followed by exactly 3 brief follow-up questions separated by |';
 
   if (hasRichContent) {
-    const system = `You are a helpful assistant that answers questions about news articles. ${noMarkdown}`;
+    const system = `You are a helpful assistant that answers questions about news articles. ${noMarkdown} ${multilingualHint}`;
     const user = `Article title: "${req.articleTitle}"
 
 Article content:
@@ -31,33 +32,39 @@ ${hasSelection ? `\nUser highlighted: "${req.selectedText}"` : ''}
 
 Question: ${req.question}
 
-Answer only from the article content. If asked to summarize, summarize what the article actually says. If the question is not covered in the article, say so briefly.`;
+Leverage this article content primarily to answer questions. If the answer is not in the article, explicitly state "This isn't covered in the article" but then provide the answer using your general knowledge.
+
+${followUpHint}`;
     return { system, user };
   }
 
   if (hasPartialContent) {
-    const system = `You are a helpful assistant for a news app. ${noMarkdown}`;
+    const system = `You are a helpful assistant for a news app. ${noMarkdown} ${multilingualHint}`;
     const user = `Article title: "${req.articleTitle}"
 Brief description: "${content}"
 ${hasSelection ? `User highlighted: "${req.selectedText}"` : ''}
 
 Question: ${req.question}
 
-Only the headline and a short description are available. Answer based on these and your knowledge of this topic. Be honest that you are working from limited information.`;
+Only the headline and a short description are available. Answer based on these and your knowledge of this topic. Be honest that you are working from limited information.
+
+${followUpHint}`;
     return { system, user };
   }
 
-  const system = `You are a helpful assistant for a news app. ${noMarkdown}`;
+  const system = `You are a helpful assistant for a news app. ${noMarkdown} ${multilingualHint}`;
   const user = `Article title: "${req.articleTitle}"
 ${hasSelection ? `User highlighted: "${req.selectedText}"` : ''}
 
 Question: ${req.question}
 
-The article has not loaded yet. Answer based on the headline and your general knowledge of this topic. Note you have not read the article.`;
+The article has not loaded yet. Answer based on the headline and your general knowledge of this topic. Note you have not read the article.
+
+${followUpHint}`;
   return { system, user };
 }
 
-export async function askGroq(req: AiRequest): Promise<string> {
+async function askGroq(req: AiRequest): Promise<string> {
   const { system, user } = buildSystemPrompt(req);
 
   const response = await axios.post(
@@ -85,7 +92,11 @@ export async function askGroq(req: AiRequest): Promise<string> {
   return text.trim();
 }
 
-// Keep Gemini as fallback if GEMINI_API_KEY is set
+async function askSarvamAI(req: AiRequest): Promise<string> {
+  const { system, user } = buildSystemPrompt(req);
+  return askSarvam(system, user);
+}
+
 async function askGeminiFallback(req: AiRequest): Promise<string> {
   const { system, user } = buildSystemPrompt(req);
   const prompt = `${system}\n\n${user}`;
@@ -107,22 +118,35 @@ async function askGeminiFallback(req: AiRequest): Promise<string> {
 }
 
 export async function askAI(req: AiRequest): Promise<string> {
-  // Try Groq first (more generous free tier)
+  // Chain: Groq (primary, best rate limits) → Sarvam → Gemini
+  // Always try all three before giving up
+
+  // 1. Groq (primary)
   if (process.env.GROQ_API_KEY) {
     try {
       return await askGroq(req);
     } catch (err: any) {
-      const status = err?.response?.status;
-      // Only fall through to Gemini on rate limit or server errors
-      if (status !== 429 && status !== 503 && status !== 500) throw err;
-      console.warn('[AI] Groq failed with', status, '— trying Gemini fallback');
+      console.warn(`[AI] Groq failed: ${err.message} — trying Sarvam`);
     }
   }
 
-  // Fallback to Gemini
-  if (process.env.GEMINI_API_KEY) {
-    return await askGeminiFallback(req);
+  // 2. Sarvam (secondary)
+  if (process.env.SARVAM_API_KEY) {
+    try {
+      return await askSarvamAI(req);
+    } catch (err: any) {
+      console.warn(`[AI] Sarvam failed: ${err.message} — trying Gemini`);
+    }
   }
 
-  throw new Error('No AI API key configured');
+  // 3. Gemini (last resort)
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      return await askGeminiFallback(req);
+    } catch (err: any) {
+      console.warn(`[AI] Gemini also failed: ${err.message}`);
+    }
+  }
+
+  throw new Error('All AI providers failed');
 }

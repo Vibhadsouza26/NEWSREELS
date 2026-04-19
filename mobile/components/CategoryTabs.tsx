@@ -11,17 +11,32 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { CATEGORIES, Category } from '../constants/categories';
 import { BOTTOM_TAB_HEIGHT } from './NewsCard';
+import { getUIStrings, LangCode } from '../constants/i18n';
 
 interface Props {
   selected: Category;
   onSelect: (category: Category) => void;
+  lang?: LangCode;
 }
 
-export default function CategoryTabs({ selected, onSelect }: Props) {
+const CATEGORY_KEY_MAP: Record<string, keyof ReturnType<typeof getUIStrings>> = {
+  all: 'forYou',
+  ai: 'ai',
+  tech: 'tech',
+  startups: 'startups',
+  product: 'product',
+  companies: 'companies',
+  geopolitical: 'world',
+  learn: 'learn',
+};
+
+export default function CategoryTabs({ selected, onSelect, lang = 'en' }: Props) {
   const scrollRef = useRef<ScrollView>(null);
   const fadeAnims = useRef<Record<string, Animated.Value>>(
     Object.fromEntries(CATEGORIES.map((c) => [c.key, new Animated.Value(c.key === selected ? 1 : 0)]))
   ).current;
+
+  const strings = getUIStrings(lang);
 
   useEffect(() => {
     CATEGORIES.forEach((c) => {
@@ -32,7 +47,6 @@ export default function CategoryTabs({ selected, onSelect }: Props) {
       }).start();
     });
 
-    // Auto-scroll to keep active tab visible
     const idx = CATEGORIES.findIndex((c) => c.key === selected);
     if (idx >= 0) {
       scrollRef.current?.scrollTo({ x: Math.max(0, idx * 72 - 36), animated: true });
@@ -41,7 +55,6 @@ export default function CategoryTabs({ selected, onSelect }: Props) {
 
   return (
     <View style={styles.wrapper}>
-      {/* Top edge gradient line */}
       <LinearGradient
         colors={['rgba(255,255,255,0.06)', 'transparent']}
         style={styles.topLine}
@@ -57,6 +70,9 @@ export default function CategoryTabs({ selected, onSelect }: Props) {
       >
         {CATEGORIES.map((cat) => {
           const isActive = selected === cat.key;
+          const labelKey = CATEGORY_KEY_MAP[cat.key];
+          const label = labelKey ? (strings[labelKey] as string) : cat.label;
+
           return (
             <TouchableOpacity
               key={cat.key}
@@ -64,7 +80,6 @@ export default function CategoryTabs({ selected, onSelect }: Props) {
               onPress={() => onSelect(cat.key)}
               activeOpacity={0.6}
             >
-              {/* Active pill background */}
               <Animated.View
                 style={[
                   styles.activePill,
@@ -76,7 +91,7 @@ export default function CategoryTabs({ selected, onSelect }: Props) {
                 {cat.emoji}
               </Text>
               <Text style={[styles.label, isActive && styles.labelActive]}>
-                {cat.label}
+                {label}
               </Text>
             </TouchableOpacity>
           );

@@ -11,6 +11,7 @@ export interface NewsItem {
   category: Category;
   publishedAt: string;
   description?: string;
+  takeaways?: string[];
 }
 
 const parser = new Parser({
