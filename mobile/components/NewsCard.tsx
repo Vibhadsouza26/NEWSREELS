@@ -2,53 +2,28 @@ import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
+import dayjs from '../constants/dayjs';
 import { NewsItem } from '../hooks/useNewsFeed';
 import { getCategoryMeta, Category } from '../constants/categories';
 
-dayjs.extend(relativeTime);
-
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
-export const BOTTOM_TAB_HEIGHT = 72;
-
 interface Props {
   item: NewsItem;
-  onPress: () => void;
-  translatedTitle?: string;
-  translatedDescription?: string;
-  translatedTakeaways?: string[];
-  swipeHintText?: string;
-  isSaved?: boolean;
-  onToggleSave?: () => void;
 }
 
-function NewsCard({
-  item,
-  onPress,
-  translatedTitle,
-  translatedDescription,
-  translatedTakeaways,
-  swipeHintText,
-  isSaved,
-  onToggleSave,
-}: Props) {
+function NewsCard({ item }: Props) {
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const meta = getCategoryMeta(item.category as Category);
   const timeAgo = dayjs(item.publishedAt).fromNow();
   const hasImage = !!item.imageUrl;
-
-  const displayTitle = translatedTitle || item.title;
-  const displayDescription = translatedDescription || item.description;
-  const displayTakeaways = translatedTakeaways || item.takeaways;
+  const imageHeight = Math.round(screenHeight * 0.42);
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={1}>
+    <View style={[styles.imageContainer, { height: imageHeight, width: screenWidth }]}>
       {/* Background layer */}
       {hasImage ? (
         <Image
@@ -67,15 +42,11 @@ function NewsCard({
         />
       )}
 
-      {/* Gradient overlay */}
+      {/* Gradient fade at bottom */}
       <LinearGradient
-        colors={
-          hasImage
-            ? ['transparent', 'transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.92)', '#000']
-            : ['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.95)', '#000']
-        }
-        locations={[0, 0.25, 0.5, 0.72, 1]}
-        style={StyleSheet.absoluteFill}
+        colors={['transparent', 'rgba(0,0,0,0.6)', '#000']}
+        locations={[0, 0.6, 1]}
+        style={styles.fade}
       />
 
       {/* No-image: large faint symbol */}
@@ -85,215 +56,89 @@ function NewsCard({
         </View>
       )}
 
-      {/* Content — pinned to bottom */}
-      <View style={styles.content}>
-        {/* Source + time + save row */}
+      {/* Source + title overlay on image */}
+      <View style={styles.overlay}>
         <View style={styles.sourceRow}>
           <View style={styles.sourcePill}>
             <Text style={styles.sourcePillText}>{item.sourceName}</Text>
           </View>
-          <Text style={styles.time}>{timeAgo}</Text>
-          <View style={{ flex: 1 }} />
-          {onToggleSave && (
-            <TouchableOpacity onPress={onToggleSave} style={styles.bookmarkBtn} activeOpacity={0.7}>
-              <View style={isSaved ? styles.bookmarkFilled : styles.bookmarkOutline}>
-                <View style={isSaved ? styles.bookmarkFoldFilled : styles.bookmarkFold} />
-              </View>
-            </TouchableOpacity>
-          )}
+          <View style={styles.metaDot} />
+          <Text style={styles.timeAgo}>{timeAgo}</Text>
         </View>
-
-        {/* Title */}
         <Text style={styles.title} numberOfLines={3}>
-          {displayTitle}
+          {item.title}
         </Text>
-
-        {/* Key Takeaways — right below title in a glass card */}
-        {displayTakeaways && displayTakeaways.length > 0 && (
-          <View style={styles.takeawaysCard}>
-            <Text style={styles.takeawaysLabel}>KEY TAKEAWAYS</Text>
-            {displayTakeaways.map((t, i) => (
-              <View key={i} style={styles.takeawayRow}>
-                <View style={styles.takeawayDot} />
-                <Text style={styles.takeawayText} numberOfLines={3}>
-                  {t}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Description — only if no takeaways, to avoid overcrowding */}
-        {displayDescription && (!displayTakeaways || displayTakeaways.length === 0) ? (
-          <Text style={styles.description} numberOfLines={2}>
-            {displayDescription}
-          </Text>
-        ) : null}
-
-        {/* Category tag */}
-        <View style={styles.categoryRow}>
-          <View style={styles.categoryChip}>
-            <Text style={styles.categoryChipText}>{meta.emoji}  {meta.label.toUpperCase()}</Text>
-          </View>
-          <Text style={styles.swipeHint}>{swipeHintText || 'Swipe for next'} ↑</Text>
-        </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
 export default React.memo(NewsCard);
 
 const styles = StyleSheet.create({
-  card: {
-    height: SCREEN_HEIGHT,
-    width: SCREEN_WIDTH,
-    backgroundColor: '#050505',
-    justifyContent: 'flex-end',
+  imageContainer: {
+    position: 'relative',
+  },
+  fade: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
   },
   bgSymbol: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 120,
+    paddingBottom: 40,
   },
   bgSymbolText: {
-    fontSize: 140,
+    fontSize: 120,
     opacity: 0.08,
     color: '#fff',
   },
-  content: {
-    paddingHorizontal: 22,
-    paddingBottom: BOTTOM_TAB_HEIGHT + 24,
-    gap: 10,
+  overlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
   },
   sourceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    marginBottom: 8,
   },
   sourcePill: {
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.22)',
-    borderRadius: 6,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
   sourcePillText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.85)',
-    letterSpacing: 0.3,
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
-  time: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
-  },
-  bookmarkBtn: {
-    padding: 6,
-  },
-  bookmarkOutline: {
-    width: 16,
-    height: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.6)',
-    borderRadius: 2,
-    position: 'relative',
-  },
-  bookmarkFilled: {
-    width: 16,
-    height: 20,
-    backgroundColor: '#7c3aed',
-    borderRadius: 2,
-    position: 'relative',
-  },
-  bookmarkFold: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 6,
-    height: 6,
-    borderBottomLeftRadius: 3,
+  metaDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  bookmarkFoldFilled: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 6,
-    height: 6,
-    borderBottomLeftRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+  timeAgo: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.25)',
   },
   title: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '700',
     color: '#fff',
-    lineHeight: 33,
-    letterSpacing: -0.5,
-  },
-  takeawaysCard: {
-    backgroundColor: 'rgba(124,58,237,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.2)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  takeawaysLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#a78bfa',
-    letterSpacing: 1.2,
-    marginBottom: 2,
-  },
-  takeawayRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  takeawayDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#a78bfa',
-    marginTop: 5,
-    flexShrink: 0,
-  },
-  takeawayText: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    lineHeight: 18,
-    flex: 1,
-  },
-  description: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.55)',
-    lineHeight: 21,
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  categoryChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.35)',
-    letterSpacing: 1,
-  },
-  swipeHint: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.2)',
-    letterSpacing: 0.3,
+    lineHeight: 25,
+    letterSpacing: -0.3,
   },
 });

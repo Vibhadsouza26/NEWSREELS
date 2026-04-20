@@ -12,6 +12,7 @@ export interface NewsItem {
   publishedAt: string;
   description?: string;
   takeaways?: string[];
+  isYouTube?: boolean;
 }
 
 const parser = new Parser({
@@ -23,6 +24,10 @@ const parser = new Parser({
     ],
   },
   timeout: 3000,
+});
+
+const ytParser = new Parser({
+  timeout: 10000, // YouTube RSS is slower
 });
 
 const MAX_AGE_DAYS = 14; // filter out articles older than 14 days
@@ -56,12 +61,14 @@ function stripHtml(html: string): string {
 
 async function parseFeed(source: FeedSource): Promise<NewsItem[]> {
   try {
-    const feed = await parser.parseURL(source.url);
+    const feed = await (source.isYouTube ? ytParser : parser).parseURL(source.url);
     const cutoff = Date.now() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 
     return (feed.items || [])
       .filter((item) => {
         if (!item.link || !item.title) return false;
+        // Skip YouTube Shorts — they're clips, not full episodes
+        if (source.isYouTube && item.link.includes('/shorts/')) return false;
         const date = item.isoDate || item.pubDate;
         if (date) {
           const t = new Date(date).getTime();
@@ -75,15 +82,24 @@ async function parseFeed(source: FeedSource): Promise<NewsItem[]> {
         const id = crypto.createHash('md5').update(url).digest('hex');
         const raw = item.contentSnippet || item.summary || item.content || '';
         const description = stripHtml(raw).substring(0, 300) || undefined;
+
+        // YouTube thumbnail fallback: extract video ID from URL or RSS id field
+        let imageUrl = extractImage(item);
+        if (!imageUrl && source.isYouTube) {
+          const vidMatch = url.match(/[?&]v=([^&]+)/) || (item as any).id?.match(/yt:video:(.+)/);
+          if (vidMatch) imageUrl = `https://i.ytimg.com/vi/${vidMatch[1]}/hqdefault.jpg`;
+        }
+
         return {
           id,
           title: item.title!.trim(),
           url,
-          imageUrl: extractImage(item),
+          imageUrl,
           sourceName: source.name,
           category: source.category,
           publishedAt: item.isoDate || item.pubDate || new Date().toISOString(),
           description: description || undefined,
+          ...(source.isYouTube && { isYouTube: true }),
         };
       });
   } catch (err: any) {

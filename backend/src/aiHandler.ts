@@ -10,6 +10,7 @@ export interface AiRequest {
   selectedText?: string;
   pageContent?: string;
   articleTitle: string;
+  articleUrl?: string;
 }
 
 function buildSystemPrompt(req: AiRequest): { system: string; user: string } {
@@ -101,7 +102,7 @@ async function askGeminiFallback(req: AiRequest): Promise<string> {
   const { system, user } = buildSystemPrompt(req);
   const prompt = `${system}\n\n${user}`;
   const model = 'gemini-2.0-flash-lite';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const response = await axios.post(
     url,
@@ -109,7 +110,7 @@ async function askGeminiFallback(req: AiRequest): Promise<string> {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.4, maxOutputTokens: 800 },
     },
-    { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+    { headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY! }, timeout: 15000 }
   );
 
   const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;

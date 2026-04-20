@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { Category, API_BASE } from '../constants/categories';
+import { API_BASE } from '../constants/categories';
 
 export interface NewsItem {
   id: string;
@@ -14,26 +14,27 @@ export interface NewsItem {
   takeaways?: string[];
 }
 
-async function fetchNews(category: Category): Promise<NewsItem[]> {
-  const url =
-    category === 'all'
-      ? `${API_BASE}/api/news`
-      : `${API_BASE}/api/news?category=${category}`;
-
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  return data.items as NewsItem[];
+async function fetchNews(): Promise<NewsItem[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(`${API_BASE}/api/news`, { signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data.items as NewsItem[];
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
-export function useNewsFeed(category: Category) {
+export function useNewsFeed() {
   const queryClient = useQueryClient();
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const polledCategoryRef = useRef<string | null>(null);
+  const polledRef = useRef(false);
 
   const query = useQuery({
-    queryKey: ['news', category],
-    queryFn: () => fetchNews(category),
+    queryKey: ['news'],
+    queryFn: fetchNews,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     retry: 2,
@@ -41,33 +42,25 @@ export function useNewsFeed(category: Category) {
 
   useEffect(() => {
     if (!query.data?.length) return;
-    if (polledCategoryRef.current === category) return;
+    if (polledRef.current) return;
 
-    // Check if any of the top 10 items are missing takeaways
     const top10Missing = query.data.slice(0, 10).some((item) => !item.takeaways?.length);
     if (!top10Missing) {
-      polledCategoryRef.current = category;
+      polledRef.current = true;
       return;
     }
 
-    // Clear old timers from previous category
     timersRef.current.forEach(clearTimeout);
-    polledCategoryRef.current = category;
+    polledRef.current = true;
 
-    // Refetch aggressively until top items have takeaways
-    // Backend now generates top 5 before responding, so the next fetch should have them
     const refetch = () => {
-      queryClient.invalidateQueries({ queryKey: ['news', category] });
-      // After invalidation, reset polledCategoryRef so next render re-checks
-      polledCategoryRef.current = null;
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+      polledRef.current = false;
     };
 
-    // Quick first refetch at 2s (backend ensureTopTakeaways is fast),
-    // then 6s, 12s as safety nets
     timersRef.current = [2000, 6000, 12000].map((d) => setTimeout(refetch, d));
-  }, [query.data, category, queryClient]);
+  }, [query.data, queryClient]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       timersRef.current.forEach(clearTimeout);

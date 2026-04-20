@@ -17,7 +17,8 @@
       "android"
     ],
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "./plugins/withKotlinVersion"
     ],
     "android": {
       "adaptiveIcon": {

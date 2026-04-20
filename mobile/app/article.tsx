@@ -1,6 +1,8 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
+  KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -9,14 +11,14 @@ import {
 import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import AiBottomSheet from '../components/AiBottomSheet';
-import { useLanguage } from './_layout';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AiInline from '../components/AiInline';
 
-// Injected into WebView to:
-// 1. Set black background immediately (prevents white flash)
-// 2. Extract page text content when loaded
-// 3. Detect text selection and post it back
-const INJECTED_JS_BEFORE = `true;`;
+const INJECTED_JS_BEFORE = `
+  document.documentElement.style.backgroundColor = '#000';
+  document.body.style.backgroundColor = '#000';
+  true;
+`;
 
 const INJECTED_JS = `
 (function() {
@@ -63,19 +65,24 @@ true;
 
 export default function ArticleScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { url, title, description } = useLocalSearchParams<{ url: string; title: string; description: string }>();
 
-  const { currentLang } = useLanguage();
   const [selectedText, setSelectedText] = useState('');
   const [pageContent, setPageContent] = useState(description ?? '');
   const [showAi, setShowAi] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
+  const pageContentRef = useRef(pageContent);
+
+  useEffect(() => {
+    pageContentRef.current = pageContent;
+  }, [pageContent]);
 
   const handleMessage = useCallback((event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'PAGE_CONTENT') {
-        if (msg.text.length > pageContent.length) setPageContent(msg.text);
+        if (msg.text.length > pageContentRef.current.length) setPageContent(msg.text);
       } else if (msg.type === 'TEXT_SELECTED') {
         setSelectedText(msg.text);
         setHasSelection(msg.text.length > 10);
@@ -88,6 +95,12 @@ export default function ArticleScreen() {
     setShowAi(true);
   }, []);
 
+  const closeAi = useCallback(() => {
+    setShowAi(false);
+    setHasSelection(false);
+    setSelectedText('');
+  }, []);
+
   if (!url) {
     return (
       <View style={styles.errorContainer}>
@@ -97,26 +110,29 @@ export default function ArticleScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <StatusBar style="light" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {title}
         </Text>
-        <TouchableOpacity onPress={() => openAi(false)} style={styles.aiHeaderBtn}>
+        <TouchableOpacity onPress={() => openAi(false)} style={styles.aiHeaderBtn} accessibilityRole="button" accessibilityLabel="Ask AI about this article">
           <Text style={styles.aiHeaderBtnText}>✨ AI</Text>
         </TouchableOpacity>
       </View>
 
-      {/* WebView */}
+      {/* WebView — shrinks when AI panel is open */}
       <WebView
         source={{ uri: url }}
-        style={styles.webview}
+        style={showAi ? styles.webviewCompact : styles.webview}
         injectedJavaScriptBeforeContentLoaded={INJECTED_JS_BEFORE}
         injectedJavaScript={INJECTED_JS}
         onMessage={handleMessage}
@@ -126,10 +142,30 @@ export default function ArticleScreen() {
         allowsBackForwardNavigationGestures={Platform.OS === 'ios'}
       />
 
+      {/* AI Panel — slides up from bottom */}
+      {showAi && (
+        <View style={[styles.aiPanel, { paddingBottom: insets.bottom || 12 }]}>
+          <ScrollView
+            style={styles.aiPanelScroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <AiInline
+              articleTitle={title ?? ''}
+              articleContent={pageContent || undefined}
+              selectedText={selectedText || undefined}
+              articleUrl={url}
+              onClose={closeAi}
+              panelMode
+            />
+          </ScrollView>
+        </View>
+      )}
+
       {/* Floating "Ask AI about selection" button */}
       {hasSelection && !showAi && (
         <TouchableOpacity
-          style={styles.selectionFab}
+          style={[styles.selectionFab, { bottom: insets.bottom + 12 }]}
           onPress={() => openAi(true)}
           activeOpacity={0.85}
         >
@@ -140,35 +176,14 @@ export default function ArticleScreen() {
       {/* Persistent bottom AI button */}
       {!hasSelection && !showAi && (
         <TouchableOpacity
-          style={styles.fab}
+          style={[styles.fab, { bottom: insets.bottom + 12 }]}
           onPress={() => openAi(false)}
           activeOpacity={0.85}
         >
           <Text style={styles.fabText}>✨</Text>
         </TouchableOpacity>
       )}
-
-      {/* AI Bottom Sheet */}
-      <AiBottomSheet
-        visible={showAi}
-        onClose={() => {
-          setShowAi(false);
-          setHasSelection(false);
-          setSelectedText('');
-        }}
-        articleTitle={title ?? ''}
-        selectedText={selectedText || undefined}
-        pageContent={pageContent || undefined}
-        lang={currentLang}
-        onOpenArticle={(articleUrl, articleTitle) => {
-          setShowAi(false);
-          router.push({
-            pathname: '/article',
-            params: { url: articleUrl, title: articleTitle, description: '' },
-          });
-        }}
-      />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -180,7 +195,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 54 : 36,
     paddingBottom: 12,
     paddingHorizontal: 16,
     backgroundColor: '#000',
@@ -217,9 +231,19 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
   },
+  webviewCompact: {
+    flex: 0.45,
+  },
+  aiPanel: {
+    flex: 0.55,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  aiPanelScroll: {
+    flex: 1,
+  },
   selectionFab: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 40 : 24,
     alignSelf: 'center',
     backgroundColor: '#7c3aed',
     paddingHorizontal: 20,
@@ -238,7 +262,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 40 : 24,
     right: 24,
     width: 52,
     height: 52,

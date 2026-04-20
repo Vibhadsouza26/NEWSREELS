@@ -127,6 +127,99 @@ export async function askSarvam(
   return stripThinking(raw);
 }
 
+// ── YouTube transcript → description + takeaways ───────────────────────────
+
+const YT_TAKEAWAY_SYSTEM = `You generate a description and key takeaways from a podcast/video transcript. Return your response in this exact format:
+
+DESCRIPTION: A 2-3 sentence summary of what this episode covers. Max 300 characters.
+TAKEAWAY: First key insight or takeaway (max 15 words)
+TAKEAWAY: Second key insight or takeaway (max 15 words)
+TAKEAWAY: Third key insight or takeaway (max 15 words)
+
+No markdown, no bullets, no extra text.`;
+
+export async function generateYouTubeTakeaways(
+  title: string,
+  transcript: string
+): Promise<{ description: string; takeaways: string[] }> {
+  const context = transcript.substring(0, 3000);
+  const userContent = `Video: "${title}"\n\nTranscript:\n${context}`;
+
+  let raw: string | undefined;
+
+  // Try Groq first
+  if (process.env.GROQ_API_KEY && Date.now() > groqCooldownUntil) {
+    try {
+      const response = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: YT_TAKEAWAY_SYSTEM },
+            { role: 'user', content: userContent },
+          ],
+          max_tokens: 400,
+          temperature: 0.3,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+          timeout: 10000,
+        }
+      );
+      raw = response.data?.choices?.[0]?.message?.content?.trim();
+    } catch (err: any) {
+      if (err.response?.status === 429) {
+        groqCooldownUntil = Date.now() + 60000;
+        console.warn(`[YT Takeaways] Groq rate-limited — skipping for 60s`);
+      } else {
+        console.warn(`[YT Takeaways] Groq failed: ${err.message}`);
+      }
+    }
+  }
+
+  // Fallback to Sarvam
+  if (!raw) {
+    const response = await axios.post(
+      SARVAM_URL,
+      {
+        model: SARVAM_MODEL,
+        messages: [
+          { role: 'system', content: YT_TAKEAWAY_SYSTEM },
+          { role: 'user', content: userContent },
+        ],
+        max_tokens: 400,
+        temperature: 0.3,
+      },
+      { headers: getHeaders(), timeout: 15000 }
+    );
+    raw = response.data?.choices?.[0]?.message?.content?.trim();
+  }
+
+  if (!raw) throw new Error('Empty YT takeaways response');
+
+  const cleaned = stripMarkdown(stripThinking(raw));
+  const lines = cleaned.split('\n').map((l: string) => l.trim()).filter(Boolean);
+
+  let description = '';
+  const takeaways: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith('DESCRIPTION:')) {
+      description = line.replace('DESCRIPTION:', '').trim().substring(0, 300);
+    } else if (line.startsWith('TAKEAWAY:')) {
+      takeaways.push(line.replace('TAKEAWAY:', '').trim());
+    }
+  }
+
+  return {
+    description: description || `${title} — podcast episode`,
+    takeaways: takeaways.slice(0, 3),
+  };
+}
+
 const TRANSLATE_URL = 'https://api.sarvam.ai/translate';
 
 const LANG_CODE_MAP: Record<string, string> = {

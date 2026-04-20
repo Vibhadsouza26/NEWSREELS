@@ -2,34 +2,11 @@ import React, { createContext, useContext } from 'react';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet } from 'react-native';
-import { useLanguagePrefs, LanguagePrefs } from '../hooks/useLanguagePrefs';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { usePersonalization } from '../hooks/usePersonalization';
-import { LangCode } from '../constants/i18n';
 
 const queryClient = new QueryClient();
-
-interface LanguageContextType {
-  prefs: LanguagePrefs;
-  savePrefs: (prefs: LanguagePrefs) => Promise<void>;
-  currentLang: LangCode;
-  setCurrentLang: (lang: LangCode) => void;
-  languages: LangCode[];
-  loaded: boolean;
-}
-
-export const LanguageContext = createContext<LanguageContextType>({
-  prefs: { primary: 'en', secondary: 'hi', tertiary: 'ta' },
-  savePrefs: async () => {},
-  currentLang: 'en',
-  setCurrentLang: () => {},
-  languages: ['en', 'hi', 'ta'],
-  loaded: false,
-});
-
-export function useLanguage() {
-  return useContext(LanguageContext);
-}
 
 interface PersonalizationContextType {
   trackView: (category: string) => void;
@@ -49,24 +26,44 @@ export function usePersonalizationContext() {
   return useContext(PersonalizationContext);
 }
 
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  state = { hasError: false, error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#000',padding:20}}>
+          <Text style={{color:'#fff',fontSize:18,fontWeight:'bold',marginBottom:8}}>Something went wrong</Text>
+          <Text style={{color:'rgba(255,255,255,0.6)',textAlign:'center',marginBottom:20}}>{this.state.error?.message}</Text>
+          <TouchableOpacity onPress={() => this.setState({hasError:false,error:null})} style={{backgroundColor:'#333',paddingHorizontal:20,paddingVertical:10,borderRadius:8}}>
+            <Text style={{color:'#fff'}}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function RootLayout() {
-  const langPrefs = useLanguagePrefs();
   const personalization = usePersonalization();
 
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <QueryClientProvider client={queryClient}>
-        <LanguageContext.Provider value={langPrefs}>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={styles.root}>
+        <QueryClientProvider client={queryClient}>
           <PersonalizationContext.Provider value={personalization}>
-            <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="article" />
-              <Stack.Screen name="saved" />
-            </Stack>
+            <ErrorBoundary>
+              <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="article" />
+                <Stack.Screen name="saved" />
+              </Stack>
+            </ErrorBoundary>
           </PersonalizationContext.Provider>
-        </LanguageContext.Provider>
-      </QueryClientProvider>
-    </GestureHandlerRootView>
+        </QueryClientProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 

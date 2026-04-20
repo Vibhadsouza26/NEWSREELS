@@ -1,7 +1,6 @@
 import React, { useCallback } from 'react';
 import {
   FlatList,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,15 +9,14 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import dayjs from '../constants/dayjs';
 import { useSavedArticles } from '../hooks/useSavedArticles';
 import { NewsItem } from '../hooks/useNewsFeed';
 
-dayjs.extend(relativeTime);
-
 export default function SavedScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { saved, toggleSave } = useSavedArticles();
 
   const handlePress = useCallback((item: NewsItem) => {
@@ -32,7 +30,7 @@ export default function SavedScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
@@ -43,7 +41,7 @@ export default function SavedScreen() {
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyHeart}>♡</Text>
           <Text style={styles.emptyText}>No saved articles yet</Text>
-          <Text style={styles.emptySub}>Tap the heart on any article to save it here</Text>
+          <Text style={styles.emptySub}>Double-tap any article to save it here</Text>
         </View>
       ) : (
         <FlatList
@@ -92,7 +90,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 54 : 36,
     paddingBottom: 12,
     paddingHorizontal: 16,
     backgroundColor: '#000',

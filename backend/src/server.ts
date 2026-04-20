@@ -1,43 +1,62 @@
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import NodeCache from 'node-cache';
 import { fetchAllFeeds, NewsItem } from './rssParser';
 import { askAI, AiRequest } from './aiHandler';
 import { ALL_CATEGORIES, Category } from './feedSources';
 import { translateTexts } from './translationService';
-import { generateTakeaways } from './sarvamClient';
+import { generateTakeaways, generateYouTubeTakeaways } from './sarvamClient';
 import { generateInsights } from './insightsGenerator';
+import { fetchTranscript, getCachedTranscript, extractVideoId } from './youtubeTranscript';
 import crypto from 'crypto';
-import { loadStore, setEntry as setStoreEntry } from './takeawaysStore';
+import { setEntry as setStoreEntry } from './takeawaysStore';
 
 // Load .env for local development (Vercel injects env vars automatically)
 import path from 'path';
-import fs from 'fs';
-const envPath = path.join(__dirname, '..', '.env');
-if (fs.existsSync(envPath)) {
-  const lines = fs.readFileSync(envPath, 'utf8').split('\n');
-  for (const line of lines) {
-    const [key, ...rest] = line.split('=');
-    if (key && rest.length) process.env[key.trim()] = rest.join('=').trim();
-  }
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// Warn if no AI provider keys are configured
+if (!process.env.GROQ_API_KEY && !process.env.SARVAM_API_KEY && !process.env.GEMINI_API_KEY) {
+  console.warn('[Startup] WARNING: No AI provider API keys found (GROQ_API_KEY, SARVAM_API_KEY, GEMINI_API_KEY). AI features will not work.');
 }
 
 const app = express();
 const cache = new NodeCache({ stdTTL: 600 }); // 10 min TTL for news
 const takeawaysCache = new NodeCache({ stdTTL: 86400 }); // 24h TTL — same article = same takeaway
+const ytDescriptionCache = new NodeCache({ stdTTL: 86400 }); // 24h — YouTube generated descriptions
 const translationCache = new NodeCache({ stdTTL: 1800 }); // 30 min TTL for translations
 
-// Hydrate takeaways cache from disk persistence
-const persisted = loadStore();
-for (const [id, takeaways] of Object.entries(persisted)) {
-  takeawaysCache.set(`takeaway_${id}`, takeaways);
-}
-if (Object.keys(persisted).length > 0) {
-  console.log(`[Takeaways] Hydrated ${Object.keys(persisted).length} entries from disk`);
-}
+// In-flight fetch deduplication — prevents cache stampede
+const inFlightFetches = new Map<string, Promise<any>>();
 
-app.use(cors());
+// CORS — restrict origins via ALLOWED_ORIGINS env var (comma-separated), default '*' for dev
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['*'];
+app.use(cors({ origin: allowedOrigins.includes('*') ? true : allowedOrigins }));
 app.use(express.json({ limit: '10mb' }));
+
+// Rate limiting — general: 100 req/min per IP
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(generalLimiter);
+
+// Rate limiting — strict: 10 req/min per IP for expensive endpoints
+const strictLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+app.use('/api/ai/ask', strictLimiter);
+app.use('/api/transcribe', strictLimiter);
+app.use('/api/translate', strictLimiter);
+app.use('/api/digest', strictLimiter);
+app.use('/api/insights', strictLimiter);
 
 // ── GET /api/categories ─────────────────────────────────────────────────────
 app.get('/api/categories', (_req, res) => {
@@ -48,59 +67,67 @@ app.get('/api/categories', (_req, res) => {
 app.get('/api/news', async (req, res) => {
   try {
     const category = req.query.category as Category | undefined;
+
+    // Validate category against allowed list
+    if (category && !ALL_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: `Invalid category. Must be one of: ${ALL_CATEGORIES.join(', ')}` });
+    }
+
     const cacheKey = `news_${category ?? 'all'}`;
 
-    const cached = cache.get<NewsItem[]>(cacheKey);
-    if (cached) {
-      // Ensure top 5 have takeaways before responding
-      await ensureTopTakeaways(cached, 5);
+    let items = cache.get<NewsItem[]>(cacheKey);
+    let wasCached = true;
 
-      const withTakeaways = attachTakeaways(cached);
-      res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
-      res.json({ items: withTakeaways, cached: true, count: withTakeaways.length });
+    if (!items) {
+      wasCached = false;
 
-      // Fire background generation for the rest
-      generateMissingTakeaways(cached);
-      return;
-    }
+      // Cache stampede protection: reuse in-flight fetch for same key
+      let fetchPromise = inFlightFetches.get(cacheKey);
+      if (!fetchPromise) {
+        fetchPromise = (async () => {
+          const rssItems = await fetchAllFeeds(category);
 
-    // Fetch RSS feeds
-    const rssItems = await fetchAllFeeds(category);
+          // Deduplicate by URL
+          const seen = new Set<string>();
+          const merged: NewsItem[] = [];
+          for (const item of rssItems) {
+            if (!seen.has(item.url)) {
+              seen.add(item.url);
+              merged.push(item);
+            }
+          }
 
-    // Deduplicate by URL
-    const seen = new Set<string>();
-    const merged: NewsItem[] = [];
+          // Sort newest first
+          merged.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
-    for (const item of rssItems) {
-      if (!seen.has(item.url)) {
-        seen.add(item.url);
-        merged.push(item);
+          // Deduplicate by source — max 3 articles per source to prevent flooding
+          const sourceCounts = new Map<string, number>();
+          const diversified = merged.filter((item) => {
+            const count = sourceCounts.get(item.sourceName) || 0;
+            if (count >= 3) return false;
+            sourceCounts.set(item.sourceName, count + 1);
+            return true;
+          });
+
+          cache.set(cacheKey, diversified);
+          return diversified;
+        })();
+        inFlightFetches.set(cacheKey, fetchPromise);
+        fetchPromise.finally(() => inFlightFetches.delete(cacheKey));
       }
+
+      items = await fetchPromise;
     }
 
-    // Sort newest first
-    merged.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-
-    // Deduplicate by source — max 3 articles per source to prevent flooding
-    const sourceCounts = new Map<string, number>();
-    const diversified = merged.filter((item) => {
-      const count = sourceCounts.get(item.sourceName) || 0;
-      if (count >= 3) return false;
-      sourceCounts.set(item.sourceName, count + 1);
-      return true;
-    });
-
-    cache.set(cacheKey, diversified);
-
-    // Generate takeaways for top 5 BEFORE responding — user sees these first
-    await ensureTopTakeaways(diversified, 5);
-
-    const withTakeaways = attachTakeaways(diversified);
+    // Send response immediately with whatever takeaways are already cached
+    const finalItems = items!;
+    const withTakeaways = attachTakeaways(finalItems);
     res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
-    res.json({ items: withTakeaways, cached: false, count: withTakeaways.length });
+    res.json({ items: withTakeaways, cached: wasCached, count: withTakeaways.length });
 
-    // Fire background generation for the rest
-    generateMissingTakeaways(diversified);
+    // Fire-and-forget: generate takeaways in background
+    ensureTopTakeaways(finalItems, 5).catch(() => {});
+    generateMissingTakeaways(finalItems);
   } catch (err: any) {
     console.error('[/api/news]', err.message);
     res.status(500).json({ error: 'Failed to fetch news' });
@@ -127,6 +154,11 @@ app.post('/api/translate', async (req, res) => {
 
     if (!texts?.length || !targetLang) {
       return res.status(400).json({ error: 'texts[] and targetLang required' });
+    }
+
+    // Cap texts array at 100 items to prevent abuse
+    if (texts.length > 100) {
+      return res.status(400).json({ error: 'texts[] cannot exceed 100 items' });
     }
 
     if (targetLang === 'en') {
@@ -170,13 +202,29 @@ app.post('/api/translate', async (req, res) => {
 // ── POST /api/ai/ask ────────────────────────────────────────────────────────
 app.post('/api/ai/ask', async (req, res) => {
   try {
-    const { question, selectedText, pageContent, articleTitle } = req.body as AiRequest;
+    const { question, selectedText, pageContent, articleTitle, articleUrl } = req.body as AiRequest & { articleUrl?: string };
 
-    if (!question || !articleTitle) {
+    if (!question) {
+      return res.status(400).json({ error: 'question is required' });
+    }
+
+    if (!articleTitle) {
       return res.status(400).json({ error: 'question and articleTitle are required' });
     }
 
-    const answer = await askAI({ question, selectedText, pageContent, articleTitle });
+    // If pageContent is thin and URL is YouTube, inject transcript
+    let enrichedContent = pageContent;
+    if ((!pageContent || pageContent.length < 200) && articleUrl) {
+      const videoId = extractVideoId(articleUrl);
+      if (videoId) {
+        const transcript = getCachedTranscript(videoId) || await fetchTranscript(videoId);
+        if (transcript) {
+          enrichedContent = transcript.fullText.substring(0, 8000);
+        }
+      }
+    }
+
+    const answer = await askAI({ question, selectedText, pageContent: enrichedContent, articleTitle });
     return res.json({ answer });
   } catch (err: any) {
     console.error('[/api/ai/ask]', err.message);
@@ -189,6 +237,12 @@ app.post('/api/transcribe', async (req, res) => {
   try {
     const { audio } = req.body as { audio: string }; // base64 encoded audio
     if (!audio) return res.status(400).json({ error: 'audio (base64) required' });
+
+    // Validate base64 payload size (max 5MB)
+    const estimatedBytes = Math.ceil(audio.length * 3 / 4);
+    if (estimatedBytes > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Audio payload exceeds 5MB limit' });
+    }
 
     const FormData = require('form-data');
     const form = new FormData();
@@ -345,31 +399,17 @@ app.get('/api/digest', async (req, res) => {
   }
 });
 
-// ── Pre-warm: fetch all categories on startup so search is instant ──────────
-let searchIndexReady = false;
-(async () => {
-  try {
-    console.log('[Search] Pre-warming all categories...');
-    await Promise.all(
-      ALL_CATEGORIES.map(async (cat) => {
-        const key = `news_${cat}`;
-        if (!cache.get(key)) {
-          try {
-            const items = await fetchAllFeeds(cat);
-            cache.set(key, items);
-          } catch {}
-        }
-      })
-    );
-    searchIndexReady = true;
-    console.log('[Search] All categories cached — search ready');
-  } catch {}
-})();
-
 // ── GET /api/search?q=query ─────────────────────────────────────────────────
 app.get('/api/search', async (req, res) => {
   try {
-    const query = (req.query.q as string || '').trim().toLowerCase();
+    const rawQuery = (req.query.q as string || '').trim();
+
+    // Cap query string length at 200 chars
+    if (rawQuery.length > 200) {
+      return res.status(400).json({ error: 'Search query cannot exceed 200 characters' });
+    }
+
+    const query = rawQuery.toLowerCase();
     if (!query) return res.json({ results: [] });
 
     // Gather all cached news items
@@ -427,8 +467,13 @@ app.get('/api/search', async (req, res) => {
 
 function attachTakeaways(items: NewsItem[]): (NewsItem & { takeaways?: string[] })[] {
   return items.map((item) => {
-    const cached = takeawaysCache.get<string[]>(`takeaway_${item.id}`);
-    return cached ? { ...item, takeaways: cached } : item;
+    const takeaways = takeawaysCache.get<string[]>(`takeaway_${item.id}`);
+    // Attach generated description for YouTube items with empty/short RSS description
+    const ytDesc = ytDescriptionCache.get<string>(`ytdesc_${item.id}`);
+    const description = (!item.description || item.description.length < 30) && ytDesc
+      ? ytDesc
+      : item.description;
+    return { ...item, ...(takeaways && { takeaways }), ...(description && { description }) };
   });
 }
 
@@ -444,6 +489,23 @@ async function ensureTopTakeaways(items: NewsItem[], count: number) {
   await Promise.all(
     topMissing.map(async (item) => {
       try {
+        if (item.isYouTube) {
+          const videoId = extractVideoId(item.url);
+          if (videoId) {
+            const transcript = await fetchTranscript(videoId);
+            if (transcript && transcript.wordCount > 50) {
+              const result = await generateYouTubeTakeaways(item.title, transcript.condensed);
+              if (result.takeaways.length > 0) {
+                takeawaysCache.set(`takeaway_${item.id}`, result.takeaways);
+                setStoreEntry(item.id, result.takeaways);
+              }
+              if (result.description) {
+                ytDescriptionCache.set(`ytdesc_${item.id}`, result.description);
+              }
+              return;
+            }
+          }
+        }
         const takeaways = await generateTakeaways(item.title, item.description || '');
         if (takeaways.length > 0) {
           takeawaysCache.set(`takeaway_${item.id}`, takeaways);
@@ -465,10 +527,35 @@ async function generateMissingTakeaways(items: NewsItem[]) {
   const generateOne = async (item: NewsItem, retries = 1): Promise<void> => {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        const takeaways = await generateTakeaways(item.title, item.description || '');
-        if (takeaways.length > 0) {
-          takeawaysCache.set(`takeaway_${item.id}`, takeaways);
-          setStoreEntry(item.id, takeaways); // persist to disk
+        if (item.isYouTube) {
+          // YouTube path: fetch transcript → generate description + takeaways
+          const videoId = extractVideoId(item.url);
+          if (!videoId) return;
+          const transcript = await fetchTranscript(videoId);
+          if (transcript && transcript.wordCount > 50) {
+            const result = await generateYouTubeTakeaways(item.title, transcript.condensed);
+            if (result.takeaways.length > 0) {
+              takeawaysCache.set(`takeaway_${item.id}`, result.takeaways);
+              setStoreEntry(item.id, result.takeaways);
+            }
+            if (result.description) {
+              ytDescriptionCache.set(`ytdesc_${item.id}`, result.description);
+            }
+          } else {
+            // No transcript — fall back to title-only takeaways
+            const takeaways = await generateTakeaways(item.title, item.description || '');
+            if (takeaways.length > 0) {
+              takeawaysCache.set(`takeaway_${item.id}`, takeaways);
+              setStoreEntry(item.id, takeaways);
+            }
+          }
+        } else {
+          // Regular article path
+          const takeaways = await generateTakeaways(item.title, item.description || '');
+          if (takeaways.length > 0) {
+            takeawaysCache.set(`takeaway_${item.id}`, takeaways);
+            setStoreEntry(item.id, takeaways);
+          }
         }
         return;
       } catch (err: any) {

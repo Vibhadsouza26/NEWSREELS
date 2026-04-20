@@ -1,9 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, StyleSheet, View } from 'react-native';
-
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+import { Animated, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 export default function SkeletonCard() {
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -18,8 +17,8 @@ export default function SkeletonCard() {
   const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
 
   return (
-    <View style={styles.card}>
-      <Animated.View style={[styles.imagePlaceholder, { opacity }]} />
+    <View style={[styles.card, { height: screenHeight, width: screenWidth }]}>
+      <Animated.View style={[styles.imagePlaceholder, { opacity, height: screenHeight * 0.4 }]} />
       <View style={styles.content}>
         <Animated.View style={[styles.pill, { opacity }]} />
         <Animated.View style={[styles.titleLine, { opacity, width: '90%' }]} />
@@ -34,12 +33,9 @@ export default function SkeletonCard() {
 
 const styles = StyleSheet.create({
   card: {
-    height: SCREEN_HEIGHT,
-    width: SCREEN_WIDTH,
     backgroundColor: '#0a0a0a',
   },
   imagePlaceholder: {
-    height: SCREEN_HEIGHT * 0.4,
     backgroundColor: '#222',
   },
   content: {

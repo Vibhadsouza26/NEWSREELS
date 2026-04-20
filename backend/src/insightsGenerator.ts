@@ -34,13 +34,14 @@ No other text. No markdown.`;
 
     let current: Partial<InsightCard> = {};
     for (const line of lines) {
-      if (line.startsWith('THEME:')) {
-        current.theme = line.replace('THEME:', '').trim();
-      } else if (line.startsWith('SUMMARY:')) {
-        current.summary = line.replace('SUMMARY:', '').trim();
-      } else if (line.startsWith('ARTICLES:')) {
-        const nums = line
-          .replace('ARTICLES:', '')
+      const trimmed = line.trim();
+      if (/^\s*theme:\s*/i.test(trimmed)) {
+        current.theme = trimmed.replace(/^\s*theme:\s*/i, '').trim();
+      } else if (/^\s*summary:\s*/i.test(trimmed)) {
+        current.summary = trimmed.replace(/^\s*summary:\s*/i, '').trim();
+      } else if (/^\s*articles:\s*/i.test(trimmed)) {
+        const nums = trimmed
+          .replace(/^\s*articles:\s*/i, '')
           .split(',')
           .map((n) => parseInt(n.trim()) - 1)
           .filter((n) => n >= 0 && n < articles.length);
