@@ -77,7 +77,6 @@ export default React.memo(NewsCard);
 
 const styles = StyleSheet.create({
   imageContainer: {
-    position: 'relative',
   },
   fade: {
     position: 'absolute',
@@ -104,6 +103,8 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 20,
     paddingBottom: 14,
+    zIndex: 10,
+    elevation: 10,
   },
   sourceRow: {
     flexDirection: 'row',
@@ -112,27 +113,27 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sourcePill: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 4,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
   sourcePillText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.7)',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   metaDot: {
-    width: 2,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   timeAgo: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.25)',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
   },
   title: {
     fontSize: 20,
@@ -140,5 +141,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     lineHeight: 25,
     letterSpacing: -0.3,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 });
