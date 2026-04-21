@@ -25,6 +25,7 @@ async function getInnertubeApiKey(): Promise<string> {
     return cachedApiKey;
   }
 
+  console.log('[YT Transcript] Fetching InnerTube API key from YouTube page...');
   const resp = await fetch('https://www.youtube.com/watch?v=dQw4w9WgXcQ', {
     headers: {
       'User-Agent':
@@ -32,10 +33,18 @@ async function getInnertubeApiKey(): Promise<string> {
       'Accept-Language': 'en-US,en;q=0.9',
     },
   });
+  console.log(`[YT Transcript] YouTube page status: ${resp.status}`);
   const html = await resp.text();
+  console.log(`[YT Transcript] YouTube page HTML length: ${html.length}`);
   const match = html.match(/"INNERTUBE_API_KEY":\s*"([a-zA-Z0-9_-]+)"/);
-  if (!match) throw new Error('Could not extract INNERTUBE_API_KEY');
+  if (!match) {
+    // Log a snippet to help debug what YouTube returned
+    const snippet = html.substring(0, 500);
+    console.error(`[YT Transcript] No INNERTUBE_API_KEY found. HTML snippet: ${snippet}`);
+    throw new Error('Could not extract INNERTUBE_API_KEY');
+  }
 
+  console.log(`[YT Transcript] Got API key: ${match[1].substring(0, 10)}...`);
   cachedApiKey = match[1];
   apiKeyFetchedAt = Date.now();
   return cachedApiKey;
@@ -67,6 +76,7 @@ export async function fetchTranscript(videoId: string): Promise<TranscriptResult
   if (cached) return cached;
 
   try {
+    console.log(`[YT Transcript] Fetching transcript for video: ${videoId}`);
     const apiKey = await getInnertubeApiKey();
 
     const resp = await fetch(
@@ -84,9 +94,17 @@ export async function fetchTranscript(videoId: string): Promise<TranscriptResult
       }
     );
 
+    console.log(`[YT Transcript] Player API status: ${resp.status}`);
     const data: any = await resp.json();
+    const playability = data?.playabilityStatus?.status;
+    const reason = data?.playabilityStatus?.reason;
+    console.log(`[YT Transcript] Playability: ${playability}${reason ? ` — ${reason}` : ''}`);
     const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-    if (!tracks?.length) return null;
+    console.log(`[YT Transcript] Caption tracks: ${tracks?.length || 0}`);
+    if (!tracks?.length) {
+      console.warn(`[YT Transcript] No caption tracks for ${videoId}. Playability: ${playability}`);
+      return null;
+    }
 
     // Prefer English, fall back to first track
     const enTrack = tracks.find((t: any) => t.languageCode === 'en') || tracks[0];

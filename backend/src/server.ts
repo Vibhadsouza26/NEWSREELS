@@ -466,6 +466,22 @@ app.get('/api/search', async (req, res) => {
   }
 });
 
+// ── GET /api/debug/transcript?v=VIDEO_ID — test transcript pipeline ────────
+app.get('/api/debug/transcript', async (req, res) => {
+  const videoId = (req.query.v as string || '').trim();
+  if (!videoId) return res.status(400).json({ error: 'v (video ID) required' });
+  try {
+    console.log(`[Debug] Testing transcript for ${videoId}`);
+    const start = Date.now();
+    const result = await fetchTranscript(videoId);
+    const elapsed = Date.now() - start;
+    if (!result) return res.json({ ok: false, videoId, elapsed, message: 'No transcript returned (check server logs for details)' });
+    return res.json({ ok: true, videoId, elapsed, wordCount: result.wordCount, preview: result.fullText.substring(0, 300) });
+  } catch (err: any) {
+    return res.json({ ok: false, videoId, error: err.message });
+  }
+});
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function attachTakeaways(items: NewsItem[]): (NewsItem & { takeaways?: string[] })[] {
