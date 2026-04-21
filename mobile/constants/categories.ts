@@ -26,4 +26,4 @@ export function getCategoryMeta(key: Category): CategoryMeta {
 // e.g. 'http://192.168.1.10:3001'
 // For iOS Simulator: 'http://localhost:3001' works fine.
 // For Android Emulator: 'http://10.0.2.2:3001'
-export const API_BASE = 'https://newsreels-eight.vercel.app';
+export const API_BASE = 'https://newsreels-31fe.onrender.com';

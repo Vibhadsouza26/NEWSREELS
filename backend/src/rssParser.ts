@@ -23,7 +23,7 @@ const parser = new Parser({
       ['enclosure', 'enclosure'],
     ],
   },
-  timeout: 3000,
+  timeout: 8000,
 });
 
 const ytParser = new Parser({
