@@ -87,12 +87,15 @@ app.get('/api/news', async (req, res) => {
         fetchPromise = (async () => {
           const rssItems = await fetchAllFeeds(category);
 
-          // Deduplicate by URL
-          const seen = new Set<string>();
+          // Deduplicate by URL and title
+          const seenUrls = new Set<string>();
+          const seenTitles = new Set<string>();
           const merged: NewsItem[] = [];
           for (const item of rssItems) {
-            if (!seen.has(item.url)) {
-              seen.add(item.url);
+            const titleKey = item.title.toLowerCase().trim();
+            if (!seenUrls.has(item.url) && !seenTitles.has(titleKey)) {
+              seenUrls.add(item.url);
+              seenTitles.add(titleKey);
               merged.push(item);
             }
           }

@@ -149,10 +149,8 @@ const FeedCard = React.memo(function FeedCard({ item, screenHeight, onDoubleTap,
   return (
     <View style={[styles.card, { height: screenHeight }]}>
       {/* Image area — double-tap to save, single tap to open article */}
-      <DoubleTapSave onDoubleTap={onDoubleTap}>
-        <TouchableOpacity activeOpacity={1} onPress={onSingleTap}>
-          <NewsCard item={item} />
-        </TouchableOpacity>
+      <DoubleTapSave onDoubleTap={onDoubleTap} onSingleTap={onSingleTap} height={imageHeight}>
+        <NewsCard item={item} />
       </DoubleTapSave>
 
       {/* Scrollable body */}
