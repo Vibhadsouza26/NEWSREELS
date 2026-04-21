@@ -119,14 +119,15 @@ app.get('/api/news', async (req, res) => {
       items = await fetchPromise;
     }
 
-    // Send response immediately with whatever takeaways are already cached
+    // Generate takeaways for top 5 before responding
     const finalItems = items!;
+    await ensureTopTakeaways(finalItems, 5).catch(() => {});
+
     const withTakeaways = attachTakeaways(finalItems);
     res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
     res.json({ items: withTakeaways, cached: wasCached, count: withTakeaways.length });
 
-    // Fire-and-forget: generate takeaways in background
-    ensureTopTakeaways(finalItems, 5).catch(() => {});
+    // Generate rest in background
     generateMissingTakeaways(finalItems);
   } catch (err: any) {
     console.error('[/api/news]', err.message);

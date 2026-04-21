@@ -32,6 +32,94 @@ const ytParser = new Parser({
 
 const MAX_AGE_DAYS = 14; // filter out articles older than 14 days
 
+// ── YouTube InnerTube fallback (when RSS feeds are down) ─────────────────────
+
+let innertubeApiKey: string | null = null;
+let innertubeKeyFetchedAt = 0;
+
+async function getInnertubeKey(): Promise<string> {
+  if (innertubeApiKey && Date.now() - innertubeKeyFetchedAt < 3600000) return innertubeApiKey;
+  const resp = await fetch('https://www.youtube.com/watch?v=dQw4w9WgXcQ', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept-Language': 'en-US,en;q=0.9' },
+  });
+  const html = await resp.text();
+  const m = html.match(/"INNERTUBE_API_KEY":\s*"([a-zA-Z0-9_-]+)"/);
+  if (!m) throw new Error('No INNERTUBE_API_KEY');
+  innertubeApiKey = m[1];
+  innertubeKeyFetchedAt = Date.now();
+  return innertubeApiKey;
+}
+
+async function fetchYouTubeViaInnerTube(source: FeedSource): Promise<NewsItem[]> {
+  const channelMatch = source.url.match(/channel_id=([^&]+)/);
+  if (!channelMatch) return [];
+  const channelId = channelMatch[1];
+
+  try {
+    const key = await getInnertubeKey();
+    const resp = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB', clientVersion: '2.20240101' } },
+        browseId: channelId,
+        params: 'EgZ2aWRlb3PyBgQKAjoA', // Videos tab
+      }),
+    });
+    const data: any = await resp.json();
+    const text = JSON.stringify(data);
+
+    // Extract video entries from the response
+    const videoRegex = /"videoId":"([^"]{11})".*?"title":\{"runs":\[\{"text":"([^"]+)"\}\].*?"publishedTimeText":\{"simpleText":"([^"]+)"\}/g;
+    const items: NewsItem[] = [];
+    const seen = new Set<string>();
+    let match;
+
+    while ((match = videoRegex.exec(text)) !== null && items.length < 10) {
+      const [, videoId, title, timeText] = match;
+      if (seen.has(videoId)) continue;
+      seen.add(videoId);
+
+      const url = `https://www.youtube.com/watch?v=${videoId}`;
+      // Skip Shorts (usually very short titles or #shorts tag)
+      if (title.includes('#shorts') || title.includes('#Shorts')) continue;
+
+      items.push({
+        id: crypto.createHash('md5').update(url).digest('hex'),
+        title: title.trim(),
+        url,
+        imageUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        sourceName: source.name,
+        category: source.category,
+        publishedAt: parseRelativeTime(timeText),
+        isYouTube: true,
+      });
+    }
+
+    if (items.length > 0) {
+      console.log(`[YT InnerTube] ${source.name}: ${items.length} videos`);
+    }
+    return items;
+  } catch (err: any) {
+    console.warn(`[YT InnerTube] Failed for ${source.name}: ${err.message}`);
+    return [];
+  }
+}
+
+function parseRelativeTime(text: string): string {
+  // "2 days ago", "3 hours ago", "1 week ago", etc.
+  const now = Date.now();
+  const m = text.match(/(\d+)\s+(second|minute|hour|day|week|month|year)/i);
+  if (!m) return new Date().toISOString();
+  const n = parseInt(m[1]);
+  const unit = m[2].toLowerCase();
+  const ms: Record<string, number> = {
+    second: 1000, minute: 60000, hour: 3600000,
+    day: 86400000, week: 604800000, month: 2592000000, year: 31536000000,
+  };
+  return new Date(now - n * (ms[unit] || 86400000)).toISOString();
+}
+
 function extractImage(item: any): string | undefined {
   // 1. media:content
   if (item.mediaContent?.$.url) return item.mediaContent.$.url;
@@ -104,6 +192,10 @@ async function parseFeed(source: FeedSource): Promise<NewsItem[]> {
       });
   } catch (err: any) {
     console.warn(`[RSS] Failed to fetch ${source.name}: ${err.message}`);
+    // Fallback: if YouTube RSS is down, use InnerTube API
+    if (source.isYouTube) {
+      return fetchYouTubeViaInnerTube(source);
+    }
     return [];
   }
 }

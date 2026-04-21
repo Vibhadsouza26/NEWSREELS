@@ -40,25 +40,24 @@ export function useNewsFeed() {
     retry: 2,
   });
 
+  const pollCountRef = useRef(0);
+
   useEffect(() => {
     if (!query.data?.length) return;
-    if (polledRef.current) return;
+    if (pollCountRef.current >= 5) return; // max 5 poll cycles
 
     const top10Missing = query.data.slice(0, 10).some((item) => !item.takeaways?.length);
-    if (!top10Missing) {
-      polledRef.current = true;
-      return;
-    }
+    if (!top10Missing) return; // all top 10 have takeaways, done
 
     timersRef.current.forEach(clearTimeout);
-    polledRef.current = true;
 
-    const refetch = () => {
+    // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+    const delay = 2000 * Math.pow(2, pollCountRef.current);
+    pollCountRef.current++;
+
+    timersRef.current = [setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ['news'] });
-      polledRef.current = false;
-    };
-
-    timersRef.current = [2000, 6000, 12000].map((d) => setTimeout(refetch, d));
+    }, delay)];
   }, [query.data, queryClient]);
 
   useEffect(() => {

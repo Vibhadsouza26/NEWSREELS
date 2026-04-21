@@ -12,7 +12,7 @@ export default function DoubleTapSave({ children, onDoubleTap }: Props) {
   const opacity = useRef(new Animated.Value(0)).current;
 
   const handleDoubleTap = useCallback((event: TapGestureHandlerStateChangeEvent) => {
-    if (event.nativeEvent.state === State.ACTIVE) {
+    if (event.nativeEvent.state === State.END) {
       onDoubleTap();
 
       // Reset
@@ -63,12 +63,14 @@ export default function DoubleTapSave({ children, onDoubleTap }: Props) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    position: 'relative',
+    flex: 1,
+    width: '100%',
   },
   heart: {
     position: 'absolute',
-    top: '22%',
-    alignSelf: 'center',
+    top: '40%',
+    left: '50%',
+    marginLeft: -40,
     fontSize: 80,
     color: '#fff',
     textShadowColor: 'rgba(255,255,255,0.2)',
