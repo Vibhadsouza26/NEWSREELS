@@ -50,6 +50,94 @@ async function getInnertubeApiKey(): Promise<string> {
   return cachedApiKey;
 }
 
+/** Extract caption URL directly from the YouTube watch page HTML.
+ *  NOTE: URLs from page HTML's captionTracks often return empty responses.
+ *  This function is kept as a fallback but player API is preferred. */
+async function extractCaptionUrlFromPage(videoId: string): Promise<string | null> {
+  try {
+    console.log(`[YT Transcript] Trying page scrape for ${videoId}...`);
+    const resp = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    console.log(`[YT Transcript] Watch page status: ${resp.status}`);
+    const html = await resp.text();
+
+    // Look for captionTracks in the initial player response embedded in page
+    const captionMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
+    if (!captionMatch) {
+      console.log(`[YT Transcript] No captionTracks in page HTML`);
+      return null;
+    }
+
+    const tracks = JSON.parse(captionMatch[1]);
+    console.log(`[YT Transcript] Found ${tracks.length} caption tracks in page`);
+    const enTrack = tracks.find((t: any) => t.languageCode === 'en') || tracks[0];
+    if (!enTrack?.baseUrl) return null;
+
+    // The URL from page HTML needs decoding
+    const url = enTrack.baseUrl.replace(/\\u0026/g, '&');
+
+    // Test if the URL actually returns content (page URLs often return empty)
+    const testResp = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    });
+    const testXml = await testResp.text();
+    if (testXml.length < 50) {
+      console.log(`[YT Transcript] Page scrape URL returned empty XML (${testXml.length} chars)`);
+      return null;
+    }
+
+    console.log(`[YT Transcript] Page scrape got working caption URL (lang: ${enTrack.languageCode}, ${testXml.length} chars)`);
+    // Return URL — caller will re-fetch, or we could cache testXml
+    return url;
+  } catch (err: any) {
+    console.warn(`[YT Transcript] Page scrape failed: ${err.message}`);
+    return null;
+  }
+}
+
+/** Get caption URL via InnerTube player API */
+async function getCaptionUrlFromPlayerApi(videoId: string, clientName: string, clientVersion: string): Promise<string | null> {
+  try {
+    const apiKey = await getInnertubeApiKey();
+    const isAndroid = clientName === 'ANDROID';
+    const ua = isAndroid
+      ? 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)'
+      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+
+    const resp = await fetch(
+      `https://www.youtube.com/youtubei/v1/player?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': ua },
+        body: JSON.stringify({
+          context: { client: { clientName, clientVersion } },
+          videoId,
+        }),
+      }
+    );
+
+    console.log(`[YT Transcript] Player API (${clientName}) status: ${resp.status}`);
+    const data: any = await resp.json();
+    const playability = data?.playabilityStatus?.status;
+    const reason = data?.playabilityStatus?.reason;
+    console.log(`[YT Transcript] Playability (${clientName}): ${playability}${reason ? ` — ${reason}` : ''}`);
+
+    const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    console.log(`[YT Transcript] Caption tracks (${clientName}): ${tracks?.length || 0}`);
+    if (!tracks?.length) return null;
+
+    const enTrack = tracks.find((t: any) => t.languageCode === 'en') || tracks[0];
+    return enTrack?.baseUrl || null;
+  } catch (err: any) {
+    console.warn(`[YT Transcript] Player API (${clientName}) failed: ${err.message}`);
+    return null;
+  }
+}
+
 function decodeEntities(s: string): string {
   return s
     .replace(/&amp;/g, '&')
@@ -77,43 +165,34 @@ export async function fetchTranscript(videoId: string): Promise<TranscriptResult
 
   try {
     console.log(`[YT Transcript] Fetching transcript for video: ${videoId}`);
-    const apiKey = await getInnertubeApiKey();
 
-    const resp = await fetch(
-      `https://www.youtube.com/youtubei/v1/player?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)',
-        },
-        body: JSON.stringify({
-          context: { client: { clientName: 'ANDROID', clientVersion: '20.10.38' } },
-          videoId,
-        }),
-      }
-    );
+    // Strategy 1: InnerTube player API with ANDROID client (most reliable locally)
+    let captionUrl = await getCaptionUrlFromPlayerApi(videoId, 'ANDROID', '20.10.38');
 
-    console.log(`[YT Transcript] Player API status: ${resp.status}`);
-    const data: any = await resp.json();
-    const playability = data?.playabilityStatus?.status;
-    const reason = data?.playabilityStatus?.reason;
-    console.log(`[YT Transcript] Playability: ${playability}${reason ? ` — ${reason}` : ''}`);
-    const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-    console.log(`[YT Transcript] Caption tracks: ${tracks?.length || 0}`);
-    if (!tracks?.length) {
-      console.warn(`[YT Transcript] No caption tracks for ${videoId}. Playability: ${playability}`);
+    if (!captionUrl) {
+      // Strategy 2: InnerTube player API with WEB client
+      console.log(`[YT Transcript] ANDROID failed, trying WEB client...`);
+      captionUrl = await getCaptionUrlFromPlayerApi(videoId, 'WEB', '2.20240101');
+    }
+
+    if (!captionUrl) {
+      // Strategy 3: Extract from watch page HTML (often returns empty, but worth trying)
+      console.log(`[YT Transcript] Player APIs failed, trying page scrape...`);
+      captionUrl = await extractCaptionUrlFromPage(videoId);
+    }
+
+    if (!captionUrl) {
+      console.warn(`[YT Transcript] All strategies failed for ${videoId}`);
       return null;
     }
 
-    // Prefer English, fall back to first track
-    const enTrack = tracks.find((t: any) => t.languageCode === 'en') || tracks[0];
-
-    const captionResp = await fetch(enTrack.baseUrl, {
+    console.log(`[YT Transcript] Fetching caption XML from: ${captionUrl.substring(0, 80)}...`);
+    const captionResp = await fetch(captionUrl, {
       headers: {
-        'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     });
+    console.log(`[YT Transcript] Caption XML status: ${captionResp.status}`);
     const xml = await captionResp.text();
     if (!xml) return null;
 
@@ -127,7 +206,7 @@ export async function fetchTranscript(videoId: string): Promise<TranscriptResult
       segments.push(decodeEntities(m[1]));
     }
 
-    // Format 2: <p>/<s> format — extract text from <s> tags within <p> paragraphs
+    // Format 2: <s> tags within <p> paragraphs
     if (segments.length === 0) {
       const sRegex = /<s[^>]*>([^<]+)<\/s>/g;
       while ((m = sRegex.exec(xml)) !== null) {
@@ -135,6 +214,16 @@ export async function fetchTranscript(videoId: string): Promise<TranscriptResult
       }
     }
 
+    // Format 3: <p t="..." d="...">content</p> (timedtext format="3")
+    if (segments.length === 0) {
+      const pRegex = /<p[^>]+>([^<]+)<\/p>/g;
+      while ((m = pRegex.exec(xml)) !== null) {
+        const text = decodeEntities(m[1]).trim();
+        if (text) segments.push(text);
+      }
+    }
+
+    console.log(`[YT Transcript] XML length: ${xml.length}, segments found: ${segments.length}`);
     if (segments.length === 0) return null;
 
     const fullText = cleanTranscript(segments.join(' '));
